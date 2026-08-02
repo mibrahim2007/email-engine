@@ -1,0 +1,27 @@
+# Obsidian — this folder lives inside a vault; keep vault state out of the repo
+.obsidian/
+.trash/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Future implementation
+node_modules/
+.next/
+.turbo/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
