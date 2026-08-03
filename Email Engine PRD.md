@@ -855,7 +855,7 @@ Pre-flight self-assessment by the PM:
 | MVP scope boundary is explicit | ✅ |
 | Open decisions are recorded and owned | ⚠️ — see §8 |
 | Architecture exists and is consistent with these epics | ✅ [[Email Engine Architecture]] |
-| Front-end spec exists | ❌ — UX Expert has not produced `front-end-spec.md` |
+| Front-end spec exists | ✅ [[Email Engine Front-End Spec]] — written 2026-08-03, after the architecture rather than before it; its five deltas are ruled on in Architecture §9.5 |
 
 ---
 

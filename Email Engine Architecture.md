@@ -509,7 +509,9 @@ Drizzle generates the table DDL; RLS policies and index DDL live in hand-written
 
 ### 6.6 As built (2026-08-02)
 
-This schema has been applied to a PostgreSQL 17 instance ahead of the Drizzle setup, as hand-written SQL in [`migrations/`](./migrations/): 16 tables, 38 indexes, 15 forced RLS policies, and the `email_engine_app` role. [`tests/rls_isolation.sql`](./tests/rls_isolation.sql) covers §6.1 with 10 checks and passes.
+This schema has been applied to a PostgreSQL 17 instance ahead of the Drizzle setup, as hand-written SQL in [`migrations/`](./migrations/). As of `0003`: **17 tables, 39 indexes, 16 forced RLS policies**, and the `email_engine_app` role. (`0001` alone landed 16 tables, 38 indexes, and 15 policies; `0003` added `conversation_events` per §6.7.)
+
+Both suites in [`tests/`](./tests/) pass and run in CI on every pull request touching `migrations/` or `tests/` — [`rls_isolation.sql`](./tests/rls_isolation.sql) covers §6.1 behaviourally with 10 checks, and [`rls_policy_coverage.sql`](./tests/rls_policy_coverage.sql) covers it structurally by walking the catalog, so a table added later with a `tenant_id` and no policy fails the build. §14 has the reasoning.
 
 Sections 6.2–6.3 above remain the target. Three deviations were forced by the instance, which has **no extensions available at all** (`pg_available_extensions` returns only `plpgsql`):
 
