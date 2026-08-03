@@ -59,7 +59,7 @@ Built with the [BMAD method](https://github.com/bmad-code-org/BMAD-METHOD) — a
 
 Six decisions are still unowned — see PRD §8. The two that gate work: the retrieval recall bar that unblocks Epic 5, and whether auto-send ships conservative (0.9, off by default) or on at 0.85. Question 6 (live presence in the conversation view) is resolved in Front-End Spec §13 — no, ship assignment plus a send-time conflict check.
 
-The UX Expert artifact was written after the architecture rather than before it, so it conforms to the frontend design already fixed in Architecture §9 and raises five deltas for the Architect to rule on (Front-End Spec §14).
+The UX Expert artifact was written after the architecture rather than before it, so it conforms to the frontend design already fixed in Architecture §9. The five deltas it raised are all ruled on in Architecture §9.5 — four accepted, one rejected in favour of a cheaper mechanism. Two change the schema and await `migrations/0003` (Architecture §6.7).
 
 ## License
 

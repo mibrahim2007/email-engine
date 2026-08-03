@@ -4,6 +4,7 @@ type: project
 status: active
 created: 2026-08-03
 updated: 2026-08-03
+version: 1.1
 due:
 area:
 tags:
@@ -19,11 +20,12 @@ tags:
 
 | | |
 |---|---|
-| **Version** | 1.0 |
+| **Version** | 1.1 — deltas ruled on |
 | **Status** | Draft — pending PO master checklist |
 | **Owner** | UX Expert agent |
 | **Written against** | PRD §3 (UI design goals), Epics 3, 5, 6 |
 | **Resolves** | PRD §8 open question 6 (see §13) |
+| **Deltas** | All five ruled on 2026-08-03 — [[Email Engine Architecture]] §9.5. Four accepted, one rejected; see §14 |
 
 > [!note] Written after the architecture, not before
 > BMAD sequences UX before the Architect, and that did not happen here — [[Email Engine Architecture]] v1.0 shipped first and already fixed the route structure (§9.1), the component inventory (§9.2), and the state model (§9.3). This spec therefore **conforms to** those decisions rather than driving them, and every place where UX needs something the architecture did not anticipate is called out explicitly as **⚠ Architecture delta** so the Architect can accept or reject it in one pass. There are five.
@@ -73,7 +75,7 @@ Five rules, each falsifiable. A design that violates one is wrong even if it loo
 
 Matches Architecture §9.1 exactly. `/onboarding` is the one addition.
 
-> **⚠ Architecture delta 1 —** §9.1 has no `/onboarding` route. PRD §3.3 lists Onboarding as a core screen and success metric §1.4 gates on "signup to first AI draft < 10 minutes p75", which needs a measurable funnel. Proposed: `app/(app)/onboarding/page.tsx`, with the `(app)` layout's auth check already covering it.
+> **⚠ Architecture delta 1 — ✅ accepted** (Architecture §9.5). `app/(app)/onboarding/page.tsx`, with the `(app)` layout's auth check already covering it. One amendment: the "no mailbox connected → onboarding" redirect goes in `inbox/page.tsx`, **not** the layout — a layout check would add a mailbox-count query to every authenticated request in the product, to serve a redirect that only matters on the landing route.
 
 ### 2.2 Navigation
 
@@ -237,7 +239,7 @@ The excerpt is the point. A citation that shows only a document title asks the a
 
 Markers are numbered per draft (`¹ ² ³`) and repeated in a footnote row beneath the composer, so the citation set is legible without any hovering at all.
 
-> **⚠ Architecture delta 2 —** §9.2 maps draft review to `hover-card`. Add `popover` and `sheet`: `hover-card` is pointer-only by design in Radix, and the keyboard and touch paths need the other two.
+> **⚠ Architecture delta 2 — ✅ accepted, and taken further.** §9.2 mapped draft review to `hover-card`, which is pointer-only by design in Radix. Architecture §9.5 accepts `popover` + `sheet` **and drops `hover-card` entirely**: a single `popover` with a hover-intent trigger serves hover, focus, and click through one code path, where maintaining both would let the accessible path drift out of sync with the one people use daily.
 
 ### 4.3 Tool trace — the `ToolCallTrace` composite
 
@@ -283,7 +285,9 @@ Inbox ──j/k──▶ row highlighted
 
 **Undo is a real cancel, not a UI trick.** Architecture §8.2 drains the outbox on a cron, so a row in `pending` can genuinely be cancelled before it is claimed. The 5s window is well inside the drain interval.
 
-> **⚠ Architecture delta 3 —** Undo needs `outbound_messages` to accept a transition from `pending` → cancelled. The §6.2 CHECK constraint allows `pending, claimed, sent, failed, dead` — no cancelled state. Either add it, or model undo as a delete of the pending row. Add it: deleting loses the audit trail that NFR15 and FR53 want.
+> **⚠ Architecture delta 3 — ✅ accepted, mechanism corrected** (Architecture §9.5, SQL in §6.7). `cancelled` joins the state CHECK; deleting the row was rejected for the audit-trail reason above.
+>
+> The correction matters: cancelling a `pending` row inside a 5-second window **races the 30-second drain** — it works most of the time and occasionally doesn't. Instead, enqueue every send with `scheduled_for = now() + <undo window>`, so the row is simply not eligible until the window closes. Cancel then reports the truth via its affected-row count — 1 means cancelled, 0 means already claimed, and the toast says "already sent" rather than lying. This also makes undo and Story 6.4's auto-send delay the same mechanism at two window lengths.
 
 ### 5.2 Onboarding — signup to first draft
 
@@ -404,14 +408,16 @@ Extends Architecture §9.2. **Bold** entries are additions this spec requires.
 |---|---|---|
 | Inbox | `data-table`, `badge`, `avatar`, `command`, `scroll-area` | `ConversationList`, `ConversationRow`, `FilterBar`, **`SavedViewNav`**, **`DraftReadyBadge`** |
 | Thread | `card`, `separator`, `collapsible`, `tabs` | `MessageBubble`, `QuotedHistory`, `AttachmentChip`, **`TimelineEvent`** |
-| Draft review | `textarea`, `button`, `tooltip`, `hover-card`, **`popover`**, **`sheet`**, `alert` | `DraftPanel`, `ConfidenceMeter`, `CitationPopover`, **`EscalationCard`**, **`ThresholdMarker`** |
+| Draft review | `textarea`, `button`, `tooltip`, **`popover`**, **`sheet`**, `alert` — *`hover-card` removed per Architecture §9.5* | `DraftPanel`, `ConfidenceMeter`, `CitationPopover`, **`EscalationCard`**, **`ThresholdMarker`** |
 | Playground | `input`, `scroll-area`, `skeleton` | `ChatStream`, `ToolCallTrace`, **`InjectionPreset`** |
 | KB | `dialog`, `progress`, `table`, `dropdown-menu` | `SourceUploader`, `IndexStatus` |
 | Settings | `form`, `select`, `switch`, `slider`, `sheet` | `MailboxConnectCard`, `PersonaEditor`, `AutoSendThreshold`, **`AutoSendExplainer`** |
 | Onboarding | `progress`, `card`, `button` | **`OnboardingStepper`**, **`FirstDraftWatcher`** |
 | Global | `sonner`, `dialog`, `command`, `dropdown-menu` | `OrgSwitcher`, `CommandPalette`, **`UndoToast`**, **`ConnectionHealthBanner`** |
 
-> **⚠ Architecture delta 4 —** `TimelineEvent` is not a message. NFR23 requires failures, escalations, and auto-sends to appear *in the conversation timeline*, which means the thread renders a heterogeneous list of messages **and** system events. `MessageBubble` alone cannot express that. This affects the conversation detail query, not just the component.
+> **⚠ Architecture delta 4 — ✅ accepted as a new table** (Architecture §9.5, SQL in §6.7). `TimelineEvent` is not a message: NFR23, Story 5.4 AC3, and Story 6.5 AC4 all require system events *in the conversation timeline*, so the thread renders a heterogeneous list and `MessageBubble` alone cannot express it.
+>
+> Resolved with a `conversation_events` table — append-only, RLS-forced, one indexed read merged with `messages` by `created_at`. Two cheaper framings were rejected: `UNION` on `audit_events` couples a compliance artifact to UI copy, and deriving from `drafts` + `outbound_messages` + conversation columns costs three extra queries against the tightest latency budget in the product (NFR2, 300ms p95).
 
 **Client/server split** (Architecture §9.2 rule: `"use client"` on the smallest leaf):
 
@@ -515,7 +521,9 @@ Focus order in the conversation: thread → draft body → send (PRD §3.4).
 
 The 200KB ceiling is the binding constraint on component choices. Rich-text editing in the composer is the obvious threat: **plain text with minimal formatting** (Story 3.5 AC1) is a budget decision as much as a scope one. A full editor would spend a quarter of the budget on one box.
 
-> **⚠ Architecture delta 5 —** Virtualising a 50,000-row list (Story 3.1 AC3) needs a windowing library, which is client-side and counts against the 200KB budget. §9.2 does not name one. Recommend measuring `data-table` + native `content-visibility: auto` before adding a dependency; the CSS route may be sufficient and costs zero bytes.
+> **⚠ Architecture delta 5 — ✖ rejected for MVP** (Architecture §9.5). No windowing library. The premise was slightly off: Story 3.1 AC3 requires the list to *handle* 50,000 conversations, and cursor pagination already keeps 50,000 rows out of the DOM — only the pages actually scrolled reach it.
+>
+> The real risk is a long session accumulating appended pages, solved by bounding the retained window to roughly 200 rows and dropping from the top with a spacer to hold scroll position. That is an array slice, costs zero bytes, and leaves `content-visibility: auto` doing what it is good at. **Revisit if** inbox INP p75 exceeds 200ms (NFR1) with the bounded window in place — a measurement, so the decision reverses on evidence.
 
 ---
 
@@ -537,15 +545,19 @@ Reasoning:
 
 ## 14. Handoff
 
-**For the Architect** — five deltas need a ruling before Epic 3 stories are drafted:
+**For the Architect** — ✅ **all five ruled on 2026-08-03** in [[Email Engine Architecture]] §9.5:
 
-| # | Delta | Section |
-|---|---|---|
-| 1 | `/onboarding` route missing from §9.1 | §2.1 |
-| 2 | Draft review needs `popover` + `sheet`; `hover-card` alone fails AA | §4.2 |
-| 3 | `outbound_messages` needs a cancelled state for Undo | §5.1 |
-| 4 | Conversation timeline is messages **and** system events — affects the query, not just components | §7 |
-| 5 | List virtualisation vs. the 200KB JS budget | §12 |
+| # | Delta | Section | Ruling |
+|---|---|---|---|
+| 1 | `/onboarding` route missing from §9.1 | §2.1 | **Accepted.** Redirect goes in `inbox/page.tsx`, not the layout — a layout check would add a query to every authenticated request |
+| 2 | Draft review needs `popover` + `sheet`; `hover-card` alone fails AA | §4.2 | **Accepted, and `hover-card` dropped.** One `popover` serves hover, focus, and click; two code paths would let the accessible one rot |
+| 3 | `outbound_messages` needs a cancelled state for Undo | §5.1 | **Accepted, mechanism corrected.** Enqueue with `scheduled_for = now() + window` so cancel cannot race the 30s drain; the affected-row count tells the UI whether it won |
+| 4 | Conversation timeline is messages **and** system events | §7 | **Accepted** as a new `conversation_events` table. `UNION` on `audit_events` and deriving from three sources were both rejected |
+| 5 | List virtualisation vs. the 200KB JS budget | §12 | **Rejected for MVP.** Cursor pagination already keeps 50k rows out of the DOM; bound the retained window to ~200 rows instead. Revisit on a measured INP regression |
+
+Deltas 3 and 4 are specified as SQL in Architecture §6.7 and await `migrations/0003_timeline_and_cancel.sql`.
+
+Two consequences for this spec, both already folded in above: §4.2's hover-card is now a `popover`, and §7's component map drops `hover-card`.
 
 **For the SM** — Epic 3 and 5 stories should embed §3 (core loop), §4 (supervision surface), §8 (keyboard), and §11 (accessibility) directly into the story files, per Architecture §1.2's rule that a story is self-contained.
 
