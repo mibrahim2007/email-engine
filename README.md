@@ -2,7 +2,7 @@
 
 Planning artifacts for a **multi-tenant SaaS email chatbot** — connect a shared mailbox, and an AI agent drafts source-cited replies that a human reviews or that send themselves above a confidence threshold you control.
 
-> **Status: design only.** This repository contains the two BMAD planning documents. No implementation code yet.
+> **Status: planning documents plus a live database schema.** No application code yet — the two BMAD artifacts, the SQL that realises the schema they specify, and the tenant-isolation test.
 
 ## Documents
 
@@ -12,6 +12,21 @@ Planning artifacts for a **multi-tenant SaaS email chatbot** — connect a share
 | [Email Engine Architecture.md](./Email%20Engine%20Architecture.md) | Stack, components, data models, Postgres schema and RLS, REST API, workflows, frontend/backend design, security, testing, coding standards |
 
 Read the PRD first — the architecture was written against it.
+
+## Database
+
+| File | What it does |
+|---|---|
+| [`migrations/0001_init.sql`](./migrations/0001_init.sql) | 16 tables, 38 indexes, `current_tenant_id()`, and a forced RLS policy on every tenant table |
+| [`migrations/0002_dedicated_role.sql`](./migrations/0002_dedicated_role.sql) | Moves the application grants to a dedicated `email_engine_app` role |
+| [`tests/rls_isolation.sql`](./tests/rls_isolation.sql) | 10 checks that tenant isolation actually holds — seeds two tenants, rolls back |
+
+Both migrations are applied and the test passes 10/10 against a PostgreSQL 17 instance.
+
+Run the test with `psql -d email_engine -f tests/rls_isolation.sql` as a superuser; it uses `SET ROLE` and needs no application password. Results print as notices, and it always ends in `ROLLBACK`.
+
+> [!WARNING]
+> **Semantic retrieval is not working on the current instance.** That server has no extensions available — `pg_available_extensions` returns only `plpgsql` — so `vector(1536)` became `real[]`, `citext` became `text` with `lower()` unique indexes, and the `pg_trgm` index became a plain btree. The keyword half of hybrid search (tsvector + GIN) is core Postgres and works. The header of `0001_init.sql` documents each substitution and how to revert it. On a Neon instance, where pgvector is available, none of this applies.
 
 ## Stack
 

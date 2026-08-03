@@ -507,6 +507,25 @@ RLS silently scopes all three scans to the current tenant — there is no `tenan
 
 Drizzle generates the table DDL; RLS policies and index DDL live in hand-written `.sql` files under `packages/db/migrations/policies/` and run after each generated migration. CI fails if any table with a `tenant_id` column lacks an enabled, forced policy — that check is a test, not a convention (§14).
 
+### 6.6 As built (2026-08-02)
+
+This schema has been applied to a PostgreSQL 17 instance ahead of the Drizzle setup, as hand-written SQL in [`migrations/`](./migrations/): 16 tables, 38 indexes, 15 forced RLS policies, and the `email_engine_app` role. [`tests/rls_isolation.sql`](./tests/rls_isolation.sql) covers §6.1 with 10 checks and passes.
+
+Sections 6.2–6.3 above remain the target. Three deviations were forced by the instance, which has **no extensions available at all** (`pg_available_extensions` returns only `plpgsql`):
+
+| §6.2 specifies | As built | Consequence |
+|---|---|---|
+| `embedding vector(1536)` + HNSW index | `real[]` + dimension CHECK, no index | **§6.4 cannot run.** No `<=>` operator, so the semantic half of hybrid retrieval is absent; the keyword half (tsvector + GIN) works. |
+| `citext` on slug/email columns | `text` + `UNIQUE` on `lower(...)` | Callers must apply `lower()` on both sides of a comparison; the app normalises on write. |
+| `pg_trgm` index on `contacts.name` | btree on `lower(name)` | Prefix search only, no fuzzy match. |
+
+`CREATE EXTENSION pgcrypto` was dropped entirely — `gen_random_uuid()` is core in PostgreSQL 13+.
+
+Two notes for whoever provisions the real environment:
+
+- **Check `pg_available_extensions` before trusting §6.2.** On a Neon instance pgvector is available and none of the above applies; reverting is `ALTER TABLE kb_chunks ALTER COLUMN embedding TYPE vector(1536)` plus recreating the two indexes.
+- **§6.1 names the application role `app_user`, which is too generic to be safe.** On a shared cluster that name is likely already taken by another application, and roles are cluster-wide while tables are not — an `IF NOT EXISTS` guard will silently attach your grants to a stranger's login role. Use a database-specific name (`email_engine_app`) and assert the role has neither `BYPASSRLS` nor `SUPERUSER` before granting.
+
 ---
 
 ## 7. REST API spec
