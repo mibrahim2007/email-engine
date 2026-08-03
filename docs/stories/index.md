@@ -10,8 +10,9 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | 1.4 | Authentication and organizations | Not drafted |
 | 1.5 | Roles and team management | Not drafted |
 | 1.6 | Application shell | Not drafted |
+| 1.7 | Notification foundation | Not drafted — **added 2026-08-03** resolving [F3](../po-validation-2026-08-03.md). Must land before Epic 2 Story 2.2, its first consumer. Depends on 1.5 (roles) and 1.6 (shell) |
 
-Later epics are not drafted. Epic 2 needs [F3 and F5](../po-validation-2026-08-03.md) resolved; Epic 3 needs F4's migration written (its design is now settled).
+Later epics are not drafted. Epic 2 needs [F5](../po-validation-2026-08-03.md) resolved; Epic 3 needs F4's migration written (its design is settled).
 
 ## Story lifecycle
 

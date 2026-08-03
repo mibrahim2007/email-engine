@@ -1,6 +1,12 @@
 > **Shard of [PRD](../../Email%20Engine%20PRD.md) §6 Epic 1.**
 > Derived file — edit the source document and re-shard, never this copy.
 
+---
+
+## 6. Epic details
+
+> Story format: `As a <role>, I want <capability>, so that <benefit>.` Acceptance criteria are testable and numbered. The SM expands each story into a self-contained story file with the relevant architecture excerpts embedded.
+
 ### Epic 1 — Foundation and tenancy
 
 **Goal:** stand up the deployable skeleton and the isolation guarantee everything else rests on. Nothing ships after this epic that could leak data across tenants.
@@ -72,6 +78,20 @@
 3. Dark mode follows the system preference and can be toggled, persisting across sessions.
 4. The shell is responsive to 768px and passes an automated accessibility scan with no critical violations.
 5. Navigation items reflect the current user's role — billing is hidden from `agent` and `viewer`.
+
+---
+
+**Story 1.7 — Notification foundation**
+*As an admin, I want to be told when something needs me, so that a broken mailbox or a failed send does not sit unnoticed.*
+
+*Added 2026-08-03 resolving PO finding F3. It sits in Epic 1 because Epic 2 Story 2.2 is the first consumer, and no story may depend on a later epic — though "foundation" is doing some work here, since this is closer to a feature than to tenancy.*
+
+1. A `notifications` table is tenant-scoped, RLS-forced, and keyed per recipient user, with `type`, `title`, `body`, `entity_type`, `entity_id`, `read_at`, `created_at`.
+2. `notify(userIds, type, …)` is the single entry point; no feature writes the table directly.
+3. The app shell shows a bell with an unread count and a panel listing notifications newest-first; clicking one marks it read and navigates to its entity.
+4. Owners and admins additionally receive transactional email via Resend for **exactly two** conditions — mailbox connection broken, outbound message `dead` — deduplicated per condition per mailbox within a 24-hour window (FR56).
+5. Email sending failure is logged and never blocks the in-app notification, which remains the durable record.
+6. A notification that duplicates a conversation timeline event links to it rather than restating it; the timeline stays the source of truth (Architecture §6.7).
 
 ---
 

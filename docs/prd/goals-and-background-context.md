@@ -47,6 +47,7 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 - Live chat, SMS, WhatsApp, or social channels — email only.
 - Full ticketing (SLAs, macros, custom workflows, CSAT surveys). This is a reply engine, not a helpdesk replacement.
 - Multi-language reply generation beyond detect-and-escalate. Detection ships; non-English drafting does not.
+- **Slack, Teams, and native push notifications.** In-app (FR55) plus operational email (FR56) is the whole notification surface. A tenant wanting Slack wires it through the signed `conversation.escalated` webhook FR48 already delivers — no first-party integration in MVP. *(Made explicit 2026-08-03; Epic 5's "optionally notifies a channel" previously implied one.)*
 - Voice/phone, mobile native apps, browser extension.
 - Fine-tuning or per-tenant model training. Retrieval only.
 - On-prem or BYO-cloud deployment.
@@ -58,4 +59,3 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 | 2026-08-01 | 1.0 | Initial PRD | PM agent |
 
 ---
-

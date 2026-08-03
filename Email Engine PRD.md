@@ -72,6 +72,7 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 - Live chat, SMS, WhatsApp, or social channels — email only.
 - Full ticketing (SLAs, macros, custom workflows, CSAT surveys). This is a reply engine, not a helpdesk replacement.
 - Multi-language reply generation beyond detect-and-escalate. Detection ships; non-English drafting does not.
+- **Slack, Teams, and native push notifications.** In-app (FR55) plus operational email (FR56) is the whole notification surface. A tenant wanting Slack wires it through the signed `conversation.escalated` webhook FR48 already delivers — no first-party integration in MVP. *(Made explicit 2026-08-03; Epic 5's "optionally notifies a channel" previously implied one.)*
 - Voice/phone, mobile native apps, browser extension.
 - Fine-tuning or per-tenant model training. Retrieval only.
 - On-prem or BYO-cloud deployment.
@@ -168,6 +169,11 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 - **FR52** — Tenants shall be able to subscribe, upgrade, downgrade, and view invoices, with plan limits enforced.
 - **FR53** — The system shall write an append-only audit event for every state change, recording actor, action, entity, and time.
 - **FR54** — Tenants shall be able to export all their data and request full deletion.
+
+**Notifications** *(added 2026-08-03 resolving PO finding F3 — four epics carried a "notifies…" acceptance criterion and no story built the means)*
+
+- **FR55** — The system shall maintain a per-user, tenant-scoped in-app notification centre with an unread count, covering assignment, escalation, mailbox health, and delivery failure. Notifications shall be dismissible and shall never be the only record of an event that also belongs in the conversation timeline.
+- **FR56** — The system shall additionally send transactional email to owners and admins for the two conditions that mean the product has silently stopped working — **a mailbox connection has broken** and **an outbound message has exhausted its retries** — deduplicated per condition per mailbox so a single broken connection produces one alert, not one per poll.
 
 ### 2.2 Non-functional requirements
 
@@ -365,6 +371,20 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 3. Dark mode follows the system preference and can be toggled, persisting across sessions.
 4. The shell is responsive to 768px and passes an automated accessibility scan with no critical violations.
 5. Navigation items reflect the current user's role — billing is hidden from `agent` and `viewer`.
+
+---
+
+**Story 1.7 — Notification foundation**
+*As an admin, I want to be told when something needs me, so that a broken mailbox or a failed send does not sit unnoticed.*
+
+*Added 2026-08-03 resolving PO finding F3. It sits in Epic 1 because Epic 2 Story 2.2 is the first consumer, and no story may depend on a later epic — though "foundation" is doing some work here, since this is closer to a feature than to tenancy.*
+
+1. A `notifications` table is tenant-scoped, RLS-forced, and keyed per recipient user, with `type`, `title`, `body`, `entity_type`, `entity_id`, `read_at`, `created_at`.
+2. `notify(userIds, type, …)` is the single entry point; no feature writes the table directly.
+3. The app shell shows a bell with an unread count and a panel listing notifications newest-first; clicking one marks it read and navigates to its entity.
+4. Owners and admins additionally receive transactional email via Resend for **exactly two** conditions — mailbox connection broken, outbound message `dead` — deduplicated per condition per mailbox within a 24-hour window (FR56).
+5. Email sending failure is logged and never blocks the in-app notification, which remains the durable record.
+6. A notification that duplicates a conversation timeline event links to it rather than restating it; the timeline stays the source of truth (Architecture §6.7).
 
 ---
 
@@ -638,7 +658,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 *As a support lead, I want the bot to know when to stop, so that it never handles something it shouldn't.*
 
 1. Escalation triggers on unsupported language, PII above threshold, strong negative sentiment, low confidence, and explicit human requests.
-2. An escalated conversation is flagged, sorted up, and optionally notifies a channel.
+2. An escalated conversation is flagged, sorted up, and raises an in-app notification (FR55). *(Amended 2026-08-03: previously "optionally notifies a channel", which implied a Slack integration no story built. A tenant wanting a channel uses the signed `conversation.escalated` webhook from FR48 — see §1.5.)*
 3. The escalation reason is stated in one plain sentence in the conversation timeline.
 4. Admins can configure which triggers are active and their thresholds.
 5. Escalation precision against a labeled set meets the agreed threshold.

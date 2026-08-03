@@ -601,6 +601,43 @@ Four reasons, in the order they bind:
 
 **Consequently closed:** the `pgvector` + `postgresql17-contrib` shell-access item, and the `email_engine_app` password item. Neither is a blocker any more — Neon ships `pgvector`, and Neon manages the credential. Both were open for two days and are dissolved rather than solved.
 
+### 6.9 `notifications`, and where migrations live from here
+
+**The table** (PO finding F3, PRD FR55, Story 1.7). Tenant-scoped and per-recipient, so RLS applies on `tenant_id` as everywhere else:
+
+```sql
+CREATE TABLE notifications (
+  tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id     uuid NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+  type        text NOT NULL,        -- assigned, escalated, mailbox_broken, send_failed
+  title       text NOT NULL,
+  body        text,
+  entity_type text,                 -- conversation, mailbox, outbound_message
+  entity_id   uuid,
+  read_at     timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now()
+  -- id, PK omitted here; see the Drizzle schema
+);
+
+CREATE INDEX idx_notifications_unread
+  ON notifications (tenant_id, user_id, created_at DESC)
+  WHERE read_at IS NULL;
+```
+
+The partial index is the one query that matters — an unread badge on every page load. It stays small no matter how much history accumulates, the same trick as `idx_outbox_pending`.
+
+`notifications` is **not** the conversation timeline. A notification for an escalation links to the `conversation_events` row (§6.7); it does not restate it. One event, one record, two surfaces.
+
+**Where migrations live from here.** Story 1.2 introduces Drizzle, and from that point `drizzle-kit generate` owns schema change in `packages/db/migrations`. That makes the hand-written root `migrations/` a closed set:
+
+| | |
+|---|---|
+| `migrations/0001`–`0003` | Applied, immutable, the pre-Drizzle history |
+| `migrations/0004_restore_extensions.sql` | **The last hand-written one.** `CREATE EXTENSION` is not expressible in a Drizzle schema and belongs in raw SQL regardless |
+| Everything after — `notifications`, the F4 search indexes, the F6 region column | **Drizzle-generated**, in `packages/db/migrations` |
+
+Both folders coexist permanently. `migrations/` is history and extensions; `packages/db/migrations` is the live schema. Story 1.2 should make the baseline explicit so Drizzle does not try to recreate sixteen tables that already exist.
+
 ---
 
 ## 7. REST API spec

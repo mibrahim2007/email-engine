@@ -5,7 +5,7 @@
 | **Date** | 2026-08-03 |
 | **Validated** | [PRD](../Email%20Engine%20PRD.md) v1.0 · [Architecture](../Email%20Engine%20Architecture.md) v1.0 (+§9.5, §6.7) · [Front-End Spec](../Email%20Engine%20Front-End%20Spec.md) v1.1 |
 | **Verdict** | 🟡 **CONCERNS** — Epic 1 Story 1.1 is cleared to start; seven findings need owners, three of them before Story 1.2 |
-| **Updated** | 2026-08-03 — **F1 resolved** ([Architecture §6.8](../Email%20Engine%20Architecture.md)): Neon is the target. F4 unblocked as a consequence. Six findings remain |
+| **Updated** | 2026-08-03 — **F1, F3, and F4 resolved.** Neon is the target ([Architecture §6.8](../Email%20Engine%20Architecture.md)); notifications split into FR55/FR56 + Story 1.7; search design settled. **Four findings remain**, none blocking Epic 1 |
 | **Sharding** | Complete — [prd](./prd/index.md) · [architecture](./architecture/index.md) · [front-end-spec](./front-end-spec/index.md) |
 
 ---
@@ -76,7 +76,22 @@ The story should be rescoped to **AC3 alone** plus wiring the existing suites in
 
 ---
 
-### F3 — No epic builds the notification channel that four epics assume 🔴 Gap
+### F3 — No epic builds the notification channel that four epics assume ✅ RESOLVED 2026-08-03
+
+> **Resolved by the PM: the four cases are not one requirement, and splitting them makes three of them cheap.**
+>
+> | Case | Resolution |
+> |---|---|
+> | Assignment → assignee (Epic 3) | **In-app** — routine, high volume, the assignee is in the app |
+> | Mailbox connection broken → admins (Epic 2, FR11) | **In-app + email.** In-app alone fails the requirement's purpose: FR11 exists *because* nobody is looking. If they were, the health indicator would already tell them |
+> | Outbound message `dead` → admins (Epic 6) | **In-app + email** — same shape |
+> | Escalation → "a channel" (Epic 5) | **Already built.** FR48 delivers a signed `conversation.escalated` webhook; a tenant wanting Slack wires that. No feature needed — the AC was amended to stop implying one |
+>
+> New **FR55** (in-app notification centre) and **FR56** (operational email, two conditions only, deduplicated). New **Story 1.7** in Epic 1 — placed there because Epic 2 Story 2.2 is the first consumer and no story may depend on a later epic. Slack/Teams/push are now named explicitly in §1.5's out-of-scope list rather than implied into existence by an acceptance criterion.
+>
+> **Resend was already in the stack** (§3, `RESEND_API_KEY` already in §12's env list), so FR56 adds no vendor, credential, or architectural decision.
+>
+> *Original finding below, kept as the record.*
 
 "Notifies admins" or "notifies the assignee" appears as an acceptance criterion in four places:
 
@@ -152,17 +167,19 @@ Recommend a traceability table in `docs/prd/`, generated once and checked when e
 Epic order holds. Each epic's technical foundations are laid by an earlier one, with the exception of the notification channel (F3), which is assumed by four and built by none.
 
 ```
-Epic 1  Foundation ──────────────────▶ can start now (Story 1.1)
-Epic 2  Ingest      ── needs F3, F5
-Epic 3  Inbox UI    ── needs F4
-Epic 4  Knowledge   ── needs F1 (pgvector) ◀── hard gate on retrieval
+Epic 1  Foundation ──────────────────▶ Story 1.1 drafted; 1.7 added for F3
+Epic 2  Ingest      ── needs F5
+Epic 3  Inbox UI    ── needs F4's migration (design settled)
+Epic 4  Knowledge   ── needs a provisioned Neon instance
 Epic 5  AI replies  ── needs Epic 4 + Q7 (recall bar)
 Epic 6  Sending     ── needs Q1 (auto-send default)
 Epic 7  Public API  ── clean
 Epic 8  Analytics   ── needs F6, Q2, Q4
 ```
 
-**Epic 4 is the hard gate.** Without `pgvector`, FR29's "combine semantic and keyword search" is half-implementable, and everything Epic 5 does rests on it. F1 is therefore the single most consequential open item in this document.
+*(Updated 2026-08-03.)* **Epic 4's gate is now a provisioning step rather than an open question.** F1 ruled for Neon, which ships `pgvector`, so FR29's hybrid retrieval is implementable the moment an instance exists — a Vercel Marketplace click. Epic 1 gained Story 1.7 (notification foundation) from F3, which lands before Epic 2's first consumer.
+
+**The largest remaining item is F5** — attachment malware scanning, which has a column and an open question but no requirement.
 
 ---
 

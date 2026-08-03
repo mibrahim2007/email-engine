@@ -44,7 +44,7 @@
 *As a support lead, I want the bot to know when to stop, so that it never handles something it shouldn't.*
 
 1. Escalation triggers on unsupported language, PII above threshold, strong negative sentiment, low confidence, and explicit human requests.
-2. An escalated conversation is flagged, sorted up, and optionally notifies a channel.
+2. An escalated conversation is flagged, sorted up, and raises an in-app notification (FR55). *(Amended 2026-08-03: previously "optionally notifies a channel", which implied a Slack integration no story built. A tenant wanting a channel uses the signed `conversation.escalated` webhook from FR48 — see §1.5.)*
 3. The escalation reason is stated in one plain sentence in the conversation timeline.
 4. Admins can configure which triggers are active and their thresholds.
 5. Escalation precision against a labeled set meets the agreed threshold.

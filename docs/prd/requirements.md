@@ -1,6 +1,7 @@
 > **Shard of [PRD](../../Email%20Engine%20PRD.md) §2.**
 > Derived file — edit the source document and re-shard, never this copy.
 
+
 ## 2. Requirements
 
 ### 2.1 Functional requirements
@@ -85,6 +86,11 @@
 - **FR52** — Tenants shall be able to subscribe, upgrade, downgrade, and view invoices, with plan limits enforced.
 - **FR53** — The system shall write an append-only audit event for every state change, recording actor, action, entity, and time.
 - **FR54** — Tenants shall be able to export all their data and request full deletion.
+
+**Notifications** *(added 2026-08-03 resolving PO finding F3 — four epics carried a "notifies…" acceptance criterion and no story built the means)*
+
+- **FR55** — The system shall maintain a per-user, tenant-scoped in-app notification centre with an unread count, covering assignment, escalation, mailbox health, and delivery failure. Notifications shall be dismissible and shall never be the only record of an event that also belongs in the conversation timeline.
+- **FR56** — The system shall additionally send transactional email to owners and admins for the two conditions that mean the product has silently stopped working — **a mailbox connection has broken** and **an outbound message has exhausted its retries** — deduplicated per condition per mailbox so a single broken connection produces one alert, not one per poll.
 
 ### 2.2 Non-functional requirements
 
