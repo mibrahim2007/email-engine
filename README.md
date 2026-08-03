@@ -10,6 +10,7 @@ Planning artifacts for a **multi-tenant SaaS email chatbot** — connect a share
 |---|---|
 | [Email Engine PRD.md](./Email%20Engine%20PRD.md) | Goals, personas, success metrics, 54 functional + 25 non-functional requirements, 8 epics, 40 stories with acceptance criteria |
 | [Email Engine Architecture.md](./Email%20Engine%20Architecture.md) | Stack, components, data models, Postgres schema and RLS, REST API, workflows, frontend/backend design, security, testing, coding standards |
+| [Email Engine Front-End Spec.md](./Email%20Engine%20Front-End%20Spec.md) | Design principles, IA, the conversation + draft-review loop, confidence and citation affordances, component map, keyboard model, accessibility |
 
 Read the PRD first — the architecture was written against it.
 
@@ -56,9 +57,9 @@ Built with the [BMAD method](https://github.com/bmad-code-org/BMAD-METHOD) — a
 
 ## Open questions
 
-Seven decisions are still unowned — see PRD §8. The two that gate work: the retrieval recall bar that unblocks Epic 5, and whether auto-send ships conservative (0.9, off by default) or on at 0.85.
+Six decisions are still unowned — see PRD §8. The two that gate work: the retrieval recall bar that unblocks Epic 5, and whether auto-send ships conservative (0.9, off by default) or on at 0.85. Question 6 (live presence in the conversation view) is resolved in Front-End Spec §13 — no, ship assignment plus a send-time conflict check.
 
-The UX Expert artifact (`front-end-spec.md`) has not been written; it should have preceded the architecture.
+The UX Expert artifact was written after the architecture rather than before it, so it conforms to the frontend design already fixed in Architecture §9 and raises five deltas for the Architect to rule on (Front-End Spec §14).
 
 ## License
 

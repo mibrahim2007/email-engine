@@ -625,6 +625,9 @@ Clerk org created → webhook → `tenants` row → seed default persona + FAQ �
 
 ## 9. Frontend architecture
 
+> [!note] The front-end spec arrived after this section
+> [[Email Engine Front-End Spec]] (2026-08-03) was written against the PRD *after* this architecture, inverting the BMAD order. It conforms to everything below rather than driving it, but raises **five deltas** that need a ruling here before Epic 3 stories are drafted: an `/onboarding` route (§2.1), `popover` + `sheet` for keyboard- and touch-accessible citations (§4.2), a cancelled state on `outbound_messages` for send-undo (§5.1), a conversation timeline carrying system events as well as messages (§7), and list virtualisation weighed against the 200KB JS budget (§12). They are collected in its §14.
+
 ### 9.1 Route structure
 
 ```

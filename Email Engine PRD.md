@@ -22,7 +22,7 @@ tags:
 | **Version** | 1.0 |
 | **Status** | Draft — pending PO master checklist |
 | **Owner** | PM agent |
-| **Downstream** | [[Email Engine Architecture]] (written), `docs/front-end-spec.md` (pending) |
+| **Downstream** | [[Email Engine Architecture]] (written), [[Email Engine Front-End Spec]] (written 2026-08-03) |
 
 ---
 
@@ -870,16 +870,18 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 | 3 | Model choice — tenant-selectable or a plan attribute we control? | Epic 5, pricing | PM |
 | 4 | Pricing shape — per seat, per message, or hybrid? | Epic 8 | PM |
 | 5 | Attachment malware scanning vendor | Epic 2 | Architect |
-| 6 | Does MVP need a shared team view of who is currently viewing a conversation? | Epic 3 | UX Expert |
+| ~~6~~ | ~~Does MVP need a shared team view of who is currently viewing a conversation?~~ **Resolved 2026-08-03: no** — assignment plus a send-time conflict check. Reasoning and revisit criteria in [[Email Engine Front-End Spec]] §13. | ~~Epic 3~~ | UX Expert ✓ |
 | 7 | Retrieval quality bar — what recall@8 gates Epic 5? | Epic 4 → 5 | Architect + PM |
 
 ---
 
 ## 9. Next steps
 
-**UX Expert prompt**
+**UX Expert prompt** — ✅ done 2026-08-03, [[Email Engine Front-End Spec]] v1.0
 
 > Using this PRD — particularly §3 (UI design goals) and Epics 3, 5, and 6 — produce `docs/front-end-spec.md`. Prioritize the conversation-plus-draft-review screen: it is the product's core loop and must make reviewing faster than writing. Specify the confidence and citation affordances precisely, including their non-color accessibility treatment. Map every screen to shadcn/ui primitives and note where a custom composite is required.
+
+Delivered against all four asks. Because it was written *after* the architecture, it conforms to Architecture §9 rather than driving it, and surfaces five deltas the Architect must rule on before Epic 3 stories are drafted — see Front-End Spec §14. Open question 6 is resolved there.
 
 **Architect prompt**
 
