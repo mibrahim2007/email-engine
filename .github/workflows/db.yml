@@ -1,0 +1,73 @@
+name: Database
+
+# Architecture §14.1 makes the RLS suite a merge blocker. This workflow is what
+# makes that true rather than aspirational: it builds the schema from the
+# migrations on a throwaway PostgreSQL 17 and fails the check run if either
+# tenant-isolation test fails.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'migrations/**'
+      - 'tests/**'
+      - '.github/workflows/db.yml'
+  pull_request:
+    paths:
+      - 'migrations/**'
+      - 'tests/**'
+      - '.github/workflows/db.yml'
+  workflow_dispatch:
+
+jobs:
+  rls:
+    name: RLS isolation
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Matches the target major version. The image ships contrib, but the
+        # migrations deliberately use no extensions, so this proves they still
+        # apply on a bare server.
+        image: postgres:17
+        env:
+          # Throwaway credential for a container that lives for one job and
+          # listens only on the runner's loopback.
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: email_engine
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: email_engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Applied in filename order, as they would be against a real database.
+      # ON_ERROR_STOP is what turns a failed statement into a failed job.
+      - name: Apply migrations
+        run: |
+          for f in migrations/*.sql; do
+            echo "── $f"
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      # Structural half: walks pg_catalog, so a table added later with a
+      # tenant_id and no policy fails here even though no test names it.
+      - name: RLS policy coverage
+        run: psql -v ON_ERROR_STOP=1 -f tests/rls_policy_coverage.sql
+
+      # Behavioural half: seeds two tenants and proves A cannot read, update,
+      # delete, or insert into B. Ends in ROLLBACK.
+      - name: RLS tenant isolation
+        run: psql -v ON_ERROR_STOP=1 -f tests/rls_isolation.sql

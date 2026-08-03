@@ -20,10 +20,13 @@ Read the PRD first — the architecture was written against it.
 | [`migrations/0001_init.sql`](./migrations/0001_init.sql) | 16 tables, 38 indexes, `current_tenant_id()`, and a forced RLS policy on every tenant table |
 | [`migrations/0002_dedicated_role.sql`](./migrations/0002_dedicated_role.sql) | Moves the application grants to a dedicated `email_engine_app` role |
 | [`tests/rls_isolation.sql`](./tests/rls_isolation.sql) | 10 checks that tenant isolation actually holds — seeds two tenants, rolls back |
+| [`tests/rls_policy_coverage.sql`](./tests/rls_policy_coverage.sql) | Walks `pg_catalog`: every table with a `tenant_id` must be `ENABLE`d, `FORCE`d, and carry a `FOR ALL` policy with both `USING` and `WITH CHECK` |
 
-Both migrations are applied and the test passes 10/10 against a PostgreSQL 17 instance.
+Both migrations are applied; isolation passes 10/10 and coverage passes 15/15 against a PostgreSQL 17 instance.
 
-Run the test with `psql -d email_engine -f tests/rls_isolation.sql` as a superuser; it uses `SET ROLE` and needs no application password. Results print as notices, and it always ends in `ROLLBACK`.
+Run either as a superuser — `psql -d email_engine -f tests/rls_isolation.sql`. Neither needs the application password: the isolation suite uses `SET ROLE`, and the coverage test only reads the catalog. Results print as notices, and both end in `ROLLBACK`.
+
+Architecture §14.1 makes these a merge blocker, and [`.github/workflows/db.yml`](./.github/workflows/db.yml) is what enforces it — every PR touching `migrations/` or `tests/` builds the schema from scratch on a throwaway PostgreSQL 17 and runs both. The two tests cover different failure modes: isolation proves the policies behave, coverage catches a table added later with a `tenant_id` and no policy, which the isolation suite would never notice because no test names it.
 
 > [!WARNING]
 > **Semantic retrieval is not working on the current instance.** That server has no extensions available — `pg_available_extensions` returns only `plpgsql` — so `vector(1536)` became `real[]`, `citext` became `text` with `lower()` unique indexes, and the `pg_trgm` index became a plain btree. The keyword half of hybrid search (tsvector + GIN) is core Postgres and works. The header of `0001_init.sql` documents each substitution and how to revert it. On a Neon instance, where pgvector is available, none of this applies.
