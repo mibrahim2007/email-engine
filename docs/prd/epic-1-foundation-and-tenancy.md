@@ -22,7 +22,7 @@
 *As a developer, I want Postgres provisioned with a migration workflow, so that schema changes are versioned and reviewable.*
 
 1. Neon Postgres provisioned via Vercel Marketplace; `DATABASE_URL` and unpooled variant set in all three environments.
-2. `pgcrypto`, `vector`, and `pg_trgm` extensions enabled.
+2. `vector`, `pg_trgm`, and `citext` extensions enabled. *(Corrected 2026-08-03 per Architecture §6.8: `pgcrypto` was listed and is obsolete — `gen_random_uuid()` has been core since PostgreSQL 13 — and `citext` was missing.)*
 3. Drizzle schema defines `tenants`, `users`, `memberships` with the fields in the architecture data models.
 4. `drizzle-kit generate` produces a checked-in migration; `migrate` applies cleanly to an empty database.
 5. CI fails if the committed schema and migrations have drifted.

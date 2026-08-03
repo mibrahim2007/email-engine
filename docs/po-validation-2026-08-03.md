@@ -5,6 +5,7 @@
 | **Date** | 2026-08-03 |
 | **Validated** | [PRD](../Email%20Engine%20PRD.md) v1.0 · [Architecture](../Email%20Engine%20Architecture.md) v1.0 (+§9.5, §6.7) · [Front-End Spec](../Email%20Engine%20Front-End%20Spec.md) v1.1 |
 | **Verdict** | 🟡 **CONCERNS** — Epic 1 Story 1.1 is cleared to start; seven findings need owners, three of them before Story 1.2 |
+| **Updated** | 2026-08-03 — **F1 resolved** ([Architecture §6.8](../Email%20Engine%20Architecture.md)): Neon is the target. F4 unblocked as a consequence. Six findings remain |
 | **Sharding** | Complete — [prd](./prd/index.md) · [architecture](./architecture/index.md) · [front-end-spec](./front-end-spec/index.md) |
 
 ---
@@ -36,7 +37,11 @@ The plan is unusually complete: epics are correctly sequenced, acceptance criter
 
 ## Findings
 
-### F1 — Epic 1 Story 1.2 describes a database that is not the one that exists 🔴 Blocking Story 1.2
+### F1 — Epic 1 Story 1.2 describes a database that is not the one that exists ✅ RESOLVED 2026-08-03
+
+> **Ruled: Neon is the target** — [Architecture §6.8](../Email%20Engine%20Architecture.md). NFR25 forbids self-managed infrastructure, and the two-day `pgvector` blocker is that requirement being violated in practice. The self-hosted instance is reclassified as scratch and will never hold tenant data. Story 1.2 is unblocked with AC2 corrected; `0004_restore_extensions.sql` reverts the §6.6 substitutions once a Neon instance exists. **F4 is unblocked as a consequence, and two long-standing infrastructure items are dissolved.**
+>
+> *Original finding below, kept as the record.*
 
 Story 1.2 AC1 provisions **Neon Postgres via the Vercel Marketplace**. AC2 enables **`pgcrypto`, `vector`, and `pg_trgm`**.
 
@@ -90,7 +95,11 @@ The first consumer is Epic 2, so this cannot wait. Cheapest MVP-consistent resol
 
 ---
 
-### F4 — Epic 3's free-text search has no index behind it 🔴 Blocking Story 3.2
+### F4 — Epic 3's free-text search has no index behind it 🟢 Unblocked by F1, design settled
+
+> **F1's ruling settles the open half of this.** With Neon, `pg_trgm` is available — so the answer is both: `tsvector` + GIN on `messages` for full-text search over subject and body (core, and always the right call for that), **and** `pg_trgm` restored on `contacts.name` for the fuzzy match §6.3 originally specified. Still needs a migration before Epic 3; folded into `0005` with F6.
+>
+> *Original finding below.*
 
 Story 3.2 AC2 requires free-text search over "subject, sender, and body with trigram-assisted matching", and AC5 sets a 500ms p95 at target scale (50,000 conversations per tenant).
 

@@ -570,6 +570,37 @@ Append-only like `audit_events` — no `UPDATE` or `DELETE` grant. A timeline en
 
 The index leads with `tenant_id` per §6.3's rule, and `tests/rls_policy_coverage.sql` will fail the PR if the policy above is ever dropped or written `USING`-only.
 
+### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
+
+[PO validation](./docs/po-validation-2026-08-03.md) F1: Epic 1 Story 1.2 provisions **Neon** and enables three extensions; the schema is applied to a **self-hosted PostgreSQL 17** where `pg_available_extensions` returns only `plpgsql`.
+
+**Ruling: Neon is the target. The self-hosted instance is reclassified as a scratch environment and will never hold tenant data.**
+
+Four reasons, in the order they bind:
+
+1. **NFR25 already decided this.** "The system shall run on a single-vendor serverless platform with **no self-managed infrastructure**." A VPS whose extension set nobody can change is self-managed infrastructure by definition. The requirement was written before the instance existed; the instance is what violates it, not the other way round.
+
+2. **The blocker is the proof.** `pgvector` has been unavailable for two days, not because the work is hard but because installing it needs shell access nobody has. That is exactly the failure mode NFR25 exists to prevent, and it has already cost the project its semantic-retrieval capability. Choosing the self-hosted box means accepting that every future extension, version bump, and `postgresql.conf` change carries the same dependency.
+
+3. **§12's deployment model is not portable.** Preview environments get "a Neon branch per PR, auto-deleted on merge". On a shared cluster that becomes a database-per-PR provisioning system somebody has to build and garbage-collect. The branching model is a reason Neon was chosen (§2.2), not an incidental benefit.
+
+4. **A shared cluster undercuts the product's own sales argument.** PRD §1.1 lists "tenant data isolation is provable, not asserted, so the product can be sold into security-reviewed accounts" as a goal. The current box runs ten databases for unrelated applications and already produced the `0002` incident, where 61 grants landed on a login role another application uses. RLS held throughout — but "our customers' mail shares a cluster with an unrelated POS system" is not a sentence that survives a security review, however good the policies are.
+
+**What this costs: almost nothing.** The artifact was always the SQL, never the server. `migrations/` is portable PostgreSQL 17 and CI has been proving that on a clean container since `6e0cb53` — the self-hosted instance was never in the CI path. The RLS design, both test suites, and the workflow all move unchanged.
+
+**What it changes:**
+
+| | |
+|---|---|
+| `migrations/0004_restore_extensions.sql` | **Blocked until a Neon instance exists.** Enables `vector`, `pg_trgm`, `citext`; converts `kb_chunks.embedding` to `vector(1536)`; restores the HNSW and trigram indexes; converts the `citext` columns and drops the `lower()` unique indexes standing in for them. Reverts every §6.6 substitution |
+| `0001`–`0003` | **Unchanged and immutable.** A migration log is append-only; rewriting it to look tidier is the habit that produces migrations which no longer describe how production got here. `0004` reverts the substitutions in the open |
+| §6.6 | Stands as the record of why `0001` looks the way it does. Not deleted |
+| Epic 1 Story 1.2 | Unblocked. AC2 corrected — `pgcrypto` is obsolete (`gen_random_uuid()` is core since PostgreSQL 13), and `citext` was missing |
+| PO finding F4 | Unblocked, and the answer improves: `tsvector` + GIN on `messages` for full-text search — core, so it was always the right call — **plus** `pg_trgm` returning to `contacts.name` for the fuzzy match §6.3 originally specified |
+| The self-hosted instance | Scratch only. Useful for exactly what it has been used for: proving SQL applies and policies hold. **No tenant data, ever** |
+
+**Consequently closed:** the `pgvector` + `postgresql17-contrib` shell-access item, and the `email_engine_app` password item. Neither is a blocker any more — Neon ships `pgvector`, and Neon manages the credential. Both were open for two days and are dissolved rather than solved.
+
 ---
 
 ## 7. REST API spec

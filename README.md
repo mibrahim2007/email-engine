@@ -17,7 +17,7 @@ Read the PRD first — the architecture was written against it.
 All three are sharded for the BMAD dev cycle under [`docs/`](./docs/) — [prd](./docs/prd/index.md), [architecture](./docs/architecture/index.md), [front-end-spec](./docs/front-end-spec/index.md). Shards are exact slices of the source documents; edit the source and re-shard, never a shard.
 
 > [!WARNING]
-> **PO validation: 🟡 CONCERNS** — [`docs/po-validation-2026-08-03.md`](./docs/po-validation-2026-08-03.md). Epic 1 Story 1.1 is cleared to start; seven findings need owners. The largest is that Epic 1 Story 1.2 provisions a Neon database with `pgvector`, `pg_trgm`, and `pgcrypto`, while the schema in `migrations/` is applied to a PostgreSQL 17 instance with **no extensions at all**. That divergence gates Epic 4 and everything retrieval depends on.
+> **PO validation: 🟡 CONCERNS** — [`docs/po-validation-2026-08-03.md`](./docs/po-validation-2026-08-03.md). Epic 1 Story 1.1 is cleared and drafted; **F1 and F4 are resolved**, five findings remain. The open ones that gate work: no epic builds the notification channel four epics assume (F3), and attachment malware scanning has a column and a question but no requirement (F5).
 
 ## Database
 
@@ -35,8 +35,10 @@ Run either as a superuser — `psql -d email_engine -f tests/rls_isolation.sql`.
 
 Architecture §14.1 makes these a merge blocker, and [`.github/workflows/db.yml`](./.github/workflows/db.yml) is what enforces it — every PR touching `migrations/` or `tests/` builds the schema from scratch on a throwaway PostgreSQL 17 and runs both. The two tests cover different failure modes: isolation proves the policies behave, coverage catches a table added later with a `tenant_id` and no policy, which the isolation suite would never notice because no test names it.
 
-> [!WARNING]
-> **Semantic retrieval is not working on the current instance.** That server has no extensions available — `pg_available_extensions` returns only `plpgsql` — so `vector(1536)` became `real[]`, `citext` became `text` with `lower()` unique indexes, and the `pg_trgm` index became a plain btree. The keyword half of hybrid search (tsvector + GIN) is core Postgres and works. The header of `0001_init.sql` documents each substitution and how to revert it. On a Neon instance, where pgvector is available, none of this applies.
+> [!NOTE]
+> **The migrations carry three substitutions, and they are on their way out.** They were written against an instance with no extensions available, so `vector(1536)` became `real[]`, `citext` became `text` with `lower()` unique indexes, and the `pg_trgm` index became a plain btree — which leaves semantic retrieval non-functional. Each substitution is documented in the header of `0001_init.sql`.
+>
+> Architecture §6.8 has since ruled that **Neon is the target database**, where all three extensions are available. `0004_restore_extensions.sql` reverts every substitution and is written once a Neon instance exists. `0001`–`0003` stay as they are: a migration log is append-only, and `0004` does the reverting in the open.
 
 ## Stack
 
