@@ -14,6 +14,11 @@ Planning artifacts for a **multi-tenant SaaS email chatbot** — connect a share
 
 Read the PRD first — the architecture was written against it.
 
+All three are sharded for the BMAD dev cycle under [`docs/`](./docs/) — [prd](./docs/prd/index.md), [architecture](./docs/architecture/index.md), [front-end-spec](./docs/front-end-spec/index.md). Shards are exact slices of the source documents; edit the source and re-shard, never a shard.
+
+> [!WARNING]
+> **PO validation: 🟡 CONCERNS** — [`docs/po-validation-2026-08-03.md`](./docs/po-validation-2026-08-03.md). Epic 1 Story 1.1 is cleared to start; seven findings need owners. The largest is that Epic 1 Story 1.2 provisions a Neon database with `pgvector`, `pg_trgm`, and `pgcrypto`, while the schema in `migrations/` is applied to a PostgreSQL 17 instance with **no extensions at all**. That divergence gates Epic 4 and everything retrieval depends on.
+
 ## Database
 
 | File | What it does |

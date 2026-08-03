@@ -1,0 +1,30 @@
+# BMAD core configuration — Email Engine
+# Referenced by Architecture §1.3. Created by the PO on 2026-08-03 during sharding.
+
+markdownExploder: true
+
+prd:
+  prdFile: Email Engine PRD.md
+  prdSharded: true
+  prdShardedLocation: docs/prd
+  epicFilePattern: epic-{n}-*.md
+
+architecture:
+  architectureFile: Email Engine Architecture.md
+  architectureSharded: true
+  architectureShardedLocation: docs/architecture
+
+frontend:
+  # Not named in Architecture §1.3 — this document was written after the
+  # architecture. Sharded anyway; the SM needs it for Epics 3, 5, and 6.
+  frontendSpecFile: Email Engine Front-End Spec.md
+  frontendSpecSharded: true
+  frontendSpecShardedLocation: docs/front-end-spec
+
+# Enters every Dev agent context. Architecture §1.3: "Keep them lean."
+devLoadAlwaysFiles:
+  - docs/architecture/tech-stack.md
+  - docs/architecture/coding-standards.md
+  - docs/architecture/source-tree.md
+
+devStoryLocation: docs/stories

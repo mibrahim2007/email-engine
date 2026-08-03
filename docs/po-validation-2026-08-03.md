@@ -1,0 +1,180 @@
+# PO master checklist — validation report
+
+| | |
+|---|---|
+| **Date** | 2026-08-03 |
+| **Validated** | [PRD](../Email%20Engine%20PRD.md) v1.0 · [Architecture](../Email%20Engine%20Architecture.md) v1.0 (+§9.5, §6.7) · [Front-End Spec](../Email%20Engine%20Front-End%20Spec.md) v1.1 |
+| **Verdict** | 🟡 **CONCERNS** — Epic 1 Story 1.1 is cleared to start; seven findings need owners, three of them before Story 1.2 |
+| **Sharding** | Complete — [prd](./prd/index.md) · [architecture](./architecture/index.md) · [front-end-spec](./front-end-spec/index.md) |
+
+---
+
+## Verdict in one paragraph
+
+The plan is unusually complete: epics are correctly sequenced, acceptance criteria are testable, and the isolation guarantee is not merely specified but built and CI-guarded ahead of schedule. What the checklist surfaces is not weakness in the plan — it is **drift between the plan and what has already been built**. Epic 1 describes provisioning a Neon database with three extensions; the schema is live on a self-hosted PostgreSQL 17 with none. That single divergence accounts for three of the seven findings. The remaining four are genuine gaps: a notification channel four epics assume and none builds, malware scanning with a column but no requirement, full-text search with no supporting index, and an NFR with no schema representation.
+
+**Story 1.1 (monorepo and deployment skeleton) depends on none of this and can start now.**
+
+---
+
+## Category results
+
+| # | Category | Result |
+|---|---|---|
+| 1 | Project setup and initialization | ✅ Pass |
+| 2 | Infrastructure and deployment sequencing | 🟡 Concerns — F1, F2 |
+| 3 | External dependencies and integrations | 🟡 Concerns — F3 |
+| 4 | UI/UX considerations | ✅ Pass — front-end spec closes the gap flagged in the PM's own §7 |
+| 5 | User vs. agent responsibility | ✅ Pass |
+| 6 | Feature sequencing and dependencies | 🟡 Concerns — F4, F5 |
+| 7 | Risk management | ✅ Pass — tenant isolation is proven, not asserted |
+| 8 | MVP scope alignment | 🟡 Concerns — F6 |
+| 9 | Documentation and handoff | ✅ Pass — sharded, indexed, `core-config.yaml` written |
+| 10 | Post-MVP considerations | ✅ Pass — §1.5 boundary is explicit and defended |
+
+---
+
+## Findings
+
+### F1 — Epic 1 Story 1.2 describes a database that is not the one that exists 🔴 Blocking Story 1.2
+
+Story 1.2 AC1 provisions **Neon Postgres via the Vercel Marketplace**. AC2 enables **`pgcrypto`, `vector`, and `pg_trgm`**.
+
+The schema is applied to a self-hosted PostgreSQL 17 where `pg_available_extensions` returns exactly one row, `plpgsql`. Architecture §6.6 documents the three substitutions this forced. So AC2 is unsatisfiable on the instance that exists, and AC1 names a provider that was not used.
+
+`pgcrypto` is separately obsolete in AC2 — `gen_random_uuid()` has been core since PostgreSQL 13.
+
+**This is a decision, not a bug.** Either:
+- **(a)** the deployment target really is Neon, the current instance is a scratch environment, and Story 1.2 stands — in which case the as-built schema gets re-applied there and Architecture §6.6's substitutions are reverted; or
+- **(b)** the self-hosted instance is the target, and Story 1.2 is rewritten to match, with `pgvector` installation becoming an infrastructure task rather than an `CREATE EXTENSION` line.
+
+**Owner: Architect.** Needed before Story 1.2 is drafted. Everything downstream of retrieval depends on which answer is true.
+
+---
+
+### F2 — Epic 1 Story 1.3 is already substantially delivered 🟡 Rescope
+
+Five of its six acceptance criteria are done and running in CI as of today:
+
+| AC | Status |
+|---|---|
+| 1 — every `tenant_id` table `ENABLE`d, `FORCE`d, `USING` + `WITH CHECK` | ✅ `0001`, verified 16/16 |
+| 2 — app role not owner, no `BYPASSRLS` | ✅ `0002`, asserted in the coverage test |
+| 3 — `withTenant()` transaction-local session | ❌ Application code, not written |
+| 4 — two-tenant isolation suite, per table | ✅ `tests/rls_isolation.sql`, 10/10 |
+| 5 — schema-walking test fails the build | ✅ `tests/rls_policy_coverage.sql` |
+| 6 — runs on every PR and blocks merge | ✅ `.github/workflows/db.yml` |
+
+The story should be rescoped to **AC3 alone** plus wiring the existing suites into the app's own CI, rather than re-implementing what exists. Left as written, the Dev agent will rebuild working, tested infrastructure.
+
+**Owner: SM,** when drafting. Depends on F1 — if the answer is (a), most of this moves with the database.
+
+---
+
+### F3 — No epic builds the notification channel that four epics assume 🔴 Gap
+
+"Notifies admins" or "notifies the assignee" appears as an acceptance criterion in four places:
+
+| Where | AC |
+|---|---|
+| Epic 2, Story 2.2 | A revoked grant "notifies admins" |
+| Epic 3, Story 3.4 | Assignment "notifies the assignee" |
+| Epic 5, Story 5.4 | Escalation "optionally notifies a channel" |
+| Epic 6, Story 6.1 | Dead outbox rows notify admins |
+
+**No story anywhere builds a notification mechanism,** and no FR describes one. There is no email-to-team path, no in-app inbox, no Slack integration in scope. FR11 requires the outcome without any story delivering the means.
+
+The first consumer is Epic 2, so this cannot wait. Cheapest MVP-consistent resolution: in-app only, backed by `conversation_events` for the conversation-scoped cases and a small `notifications` table for the account-scoped ones — deferring email/Slack to post-MVP explicitly rather than by accident.
+
+**Owner: PM,** before Epic 2 is drafted.
+
+---
+
+### F4 — Epic 3's free-text search has no index behind it 🔴 Blocking Story 3.2
+
+Story 3.2 AC2 requires free-text search over "subject, sender, and body with trigram-assisted matching", and AC5 sets a 500ms p95 at target scale (50,000 conversations per tenant).
+
+The as-built schema has **no full-text index on `messages` or `conversations`**. The only `tsvector` is on `kb_chunks`, and `pg_trgm` is unavailable. `idx_msg_conv_received` supports the thread view, not search. At 50,000 conversations this AC would be a sequential scan per keystroke.
+
+Needs either a generated `tsvector` column plus GIN on `messages` — both core, so available today — or `pg_trgm`, which returns to F1. The tsvector route is the one that works on either database, which makes it the safer choice while F1 is open.
+
+**Owner: Architect,** before Epic 3. A migration `0004`, not an application change.
+
+---
+
+### F5 — Attachment malware scanning: a column, an open question, and no requirement 🟡 Gap
+
+The schema carries `attachments.scan_status` defaulting to `'pending'`. PRD §8 question 5 names "attachment malware scanning vendor" as gating Epic 2. But there is **no FR for malware scanning and no story with an acceptance criterion covering it** — the capability exists only as a column and a question.
+
+Rows will accumulate at `'pending'` forever and nothing will fail, which is the quiet kind of gap.
+
+Either write the FR and the story, or make the deferral explicit: scanning is post-MVP, `scan_status` stays `'pending'`, and attachments are served with a warning. The second is defensible for an MVP; the current state is not, because it looks handled.
+
+**Owner: PM + Architect,** before Epic 2.
+
+---
+
+### F6 — NFR22 (data region) has no representation in the schema 🟡 Minor
+
+NFR22: "Data region shall be a tenant-level attribute, even if only one region is offered at launch." Epic 8's AC repeats it: "Data region is a tenant attribute."
+
+The `tenants` table has no region column. It could live in `settings` jsonb, but nothing says so, and a jsonb key is not what "attribute" implies to whoever implements Epic 8.
+
+Cheap to fix now and awkward later — `0003` just went in, so `0004` can carry a `region text NOT NULL DEFAULT 'us-east'` alongside F4's search index. Deciding it now costs one line.
+
+**Owner: Architect,** with F4.
+
+---
+
+### F7 — FR→story traceability is asserted, not demonstrated 🟡 Process
+
+PRD §7 records "Every FR maps to at least one story ✅". The epics do not cite FR numbers anywhere, so the mapping exists in the PM's reasoning rather than in the artifact, and cannot be re-verified by anyone else — including the PO.
+
+Spot-checking a sample (FR11, FR24, FR29, FR46, FR54) found stories for all five, so the claim is *probably* sound. But F3 and F5 are both cases where a requirement has no delivering story, and both were found by reading rather than by tracing — which is precisely what a matrix would have surfaced immediately.
+
+Recommend a traceability table in `docs/prd/`, generated once and checked when epics change.
+
+**Owner: PO.** Not blocking.
+
+---
+
+## Sequencing verdict
+
+Epic order holds. Each epic's technical foundations are laid by an earlier one, with the exception of the notification channel (F3), which is assumed by four and built by none.
+
+```
+Epic 1  Foundation ──────────────────▶ can start now (Story 1.1)
+Epic 2  Ingest      ── needs F3, F5
+Epic 3  Inbox UI    ── needs F4
+Epic 4  Knowledge   ── needs F1 (pgvector) ◀── hard gate on retrieval
+Epic 5  AI replies  ── needs Epic 4 + Q7 (recall bar)
+Epic 6  Sending     ── needs Q1 (auto-send default)
+Epic 7  Public API  ── clean
+Epic 8  Analytics   ── needs F6, Q2, Q4
+```
+
+**Epic 4 is the hard gate.** Without `pgvector`, FR29's "combine semantic and keyword search" is half-implementable, and everything Epic 5 does rests on it. F1 is therefore the single most consequential open item in this document.
+
+---
+
+## Cleared to proceed
+
+**Epic 1, Story 1.1 — Monorepo and deployment skeleton.** No dependency on any finding above. The SM can draft it now.
+
+Story 1.2 should not be drafted until F1 is answered. Story 1.3 should not be drafted until F2 is rescoped.
+
+---
+
+## Sharding record
+
+| Target | Files | Source |
+|---|---|---|
+| [`docs/prd/`](./prd/index.md) | 17 | PRD §1–§9, one file per epic |
+| [`docs/architecture/`](./architecture/index.md) | 15 | Architecture §2–§15 |
+| [`docs/front-end-spec/`](./front-end-spec/index.md) | 14 | Front-End Spec §1–§14 |
+
+Shards are exact line slices — verified contiguous, no gaps or overlaps, every file starting on a heading. They are derived artifacts: edit the source and re-shard.
+
+`.bmad-core/core-config.yaml` written, with `devLoadAlwaysFiles` set to the three lean shards Architecture §1.3 specifies.
+
+**Two amendments to §1.3's plan:** it lists twelve architecture shards and omits §2 (high-level architecture) and §12 (deployment), both of which are referenced by shards that *are* listed. Added, making fourteen. §1.3 also predates the front-end spec, which is sharded here on the same terms.
