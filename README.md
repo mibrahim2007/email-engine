@@ -20,10 +20,11 @@ Read the PRD first — the architecture was written against it.
 |---|---|
 | [`migrations/0001_init.sql`](./migrations/0001_init.sql) | 16 tables, 38 indexes, `current_tenant_id()`, and a forced RLS policy on every tenant table |
 | [`migrations/0002_dedicated_role.sql`](./migrations/0002_dedicated_role.sql) | Moves the application grants to a dedicated `email_engine_app` role |
+| [`migrations/0003_timeline_and_cancel.sql`](./migrations/0003_timeline_and_cancel.sql) | `conversation_events` for the timeline, and a `cancelled` state on `outbound_messages` for send-undo |
 | [`tests/rls_isolation.sql`](./tests/rls_isolation.sql) | 10 checks that tenant isolation actually holds — seeds two tenants, rolls back |
 | [`tests/rls_policy_coverage.sql`](./tests/rls_policy_coverage.sql) | Walks `pg_catalog`: every table with a `tenant_id` must be `ENABLE`d, `FORCE`d, and carry a `FOR ALL` policy with both `USING` and `WITH CHECK` |
 
-Both migrations are applied; isolation passes 10/10 and coverage passes 15/15 against a PostgreSQL 17 instance.
+`0001` and `0002` are applied to a PostgreSQL 17 instance, where isolation passes 10/10 and coverage 15/15. **`0003` is written but not yet applied there** — it has been dry-run against that schema inside a transaction that rolled back, and CI applies all three from scratch on every run, where coverage sees 16 tables.
 
 Run either as a superuser — `psql -d email_engine -f tests/rls_isolation.sql`. Neither needs the application password: the isolation suite uses `SET ROLE`, and the coverage test only reads the catalog. Results print as notices, and both end in `ROLLBACK`.
 
