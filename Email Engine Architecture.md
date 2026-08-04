@@ -651,6 +651,32 @@ The default means every existing and future tenant has a truthful region from da
 
 **Lands in the Drizzle schema in Story 1.2** alongside the `tenants` definition — no hand-written migration, since Neon has no schema yet (§6.9).
 
+### 6.8d Ruling on PRD §8 Q2 — data residency (2026-08-04)
+
+> *Single region now, or tenant→region routing designed up front?* Blocks Epic 8.
+
+**Ruling: one region at launch. The attribute is the seam; the routing is not built.**
+
+NFR22 asks only that region be *a tenant-level attribute, even if only one region is offered* — and §6.8b already delivered exactly that. The question left is whether to build routing, and the answer is no, for a reason specific to this architecture:
+
+**Per-tenant region routing changes `withTenant()`, which is the most load-bearing function in the product** (§10.2). Today it opens a transaction and sets `app.tenant_id`. Routing would make it first resolve a *pool* from the tenant's region, which means the tenant lookup must happen before the tenant-scoped session exists — a chicken-and-egg that has to be solved with a global registry outside RLS. That is a real design, and it is the wrong thing to be designing before the first customer.
+
+Everything else follows cheaply because the column exists: tenants carry a truthful region from day one, migrations stay single-path, and adding a second region later is a data move plus a routing layer rather than a schema redesign.
+
+> [!warning] The column must not become another `scan_status`
+> `region` defaults to `'us-east'` and nothing enforces it, which is precisely the shape of the `attachments.scan_status DEFAULT 'pending'` problem §13.3 had to fix — a field that looks like a capability and is actually a placeholder. It stays honest by **constraint, not by intention**:
+>
+> ```sql
+> region text NOT NULL DEFAULT 'us-east'
+>   CHECK (region IN ('us-east'))   -- extend only when a region is really offered
+> ```
+>
+> A single-value `CHECK` looks absurd and is the point: it makes the column state what is *true* rather than what is *aspired to*, and adding `'eu-west'` becomes a deliberate migration at the moment the capability actually exists. Story 1.2 AC8 should carry this.
+
+**What would force the decision earlier:** a customer with a contractual EU-residency requirement. That is a sales event, not a technical one — observable, and it arrives with a date attached. Revisit then, not on a schedule.
+
+**Epic 8's AC5** — *"data region is a tenant attribute, and the audit trail satisfies a standard DPA review"* — is satisfiable as written under this ruling. The honest DPA answer is "one region, recorded per tenant, enforced by constraint", which reviews better than a routing layer nobody has exercised.
+
 ### 6.9 `notifications`, and where migrations live from here
 
 **The table** (PO finding F3, PRD FR55, Story 1.7). Tenant-scoped and per-recipient, so RLS applies on `tenant_id` as everywhere else:

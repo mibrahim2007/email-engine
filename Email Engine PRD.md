@@ -332,7 +332,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 5. CI fails if the committed schema and migrations have drifted.
 6. A seed script creates two tenants with distinct users for local development.
 7. **Point-in-time recovery is enabled with a retention window of at least 7 days, and a restore to an arbitrary point is exercised once and documented** (NFR20). *(Added 2026-08-04 per traceability finding F10 — NFR20 had no owning story anywhere. It is a setting on the instance this story provisions, so this is the cheapest moment it will ever have.)*
-8. `tenants` carries `region text NOT NULL DEFAULT 'us-east'` (Architecture §6.8b, NFR22) and `slug` is `citext`. *(Tightened 2026-08-04: this previously also named `attachments.scan_status`, a table Epic 2 creates — Story 2.5 AC7 already carries that instruction.)*
+8. `tenants` carries `region text NOT NULL DEFAULT 'us-east' CHECK (region IN ('us-east'))` (Architecture §6.8b and §6.8d, NFR22) and `slug` is `citext`. **The single-value CHECK is deliberate** — it makes the column state the region actually offered rather than one aspired to, so adding a second becomes a deliberate migration. *(Tightened 2026-08-04: this previously also named `attachments.scan_status`, a table Epic 2 creates — Story 2.5 AC7 already carries that instruction.)*
 9. The Drizzle schema defines **intended** types, never the substitutions in `migrations/0001`, which were forced by an instance this story does not use. `migrations/0001`–`0003` are **never applied to Neon** (§6.8c); the live schema comes from Drizzle. *(Tightened 2026-08-04: this previously named `vector(1536)` and the HNSW index, which belong to `kb_chunks` in Epic 4. AC2's extensions are enabled here so those stories can use them.)*
 
 ---
@@ -909,7 +909,7 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 | # | Question | Blocks | Owner |
 |---|---|---|---|
 | 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? | Epic 6 | PM, after Epic 5 eval data |
-| 2 | Data residency — single region now, or tenant→region routing designed up front? | Epic 8 | Architect |
+| ~~2~~ | ~~Data residency — single region now, or tenant→region routing designed up front?~~ **Closed 2026-08-04: single region.** The attribute is the seam ([[Email Engine Architecture]] §6.8b); the routing is not built, because it would change `withTenant()` before there is a customer to justify it. Reasoning and the revisit trigger in §6.8d | ~~Epic 8~~ | Architect ✓ |
 | 3 | Model choice — tenant-selectable or a plan attribute we control? | Epic 5, pricing | PM |
 | 4 | Pricing shape — per seat, per message, or hybrid? | Epic 8 | PM |
 | ~~5~~ | ~~Attachment malware scanning vendor~~ **Closed 2026-08-04: none.** The question was unanswerable as posed — it asked *which vendor*, and the answer is that scanning is deferred and containment ships instead (FR57). Reasoning in [[Email Engine Architecture]] §13.3 | ~~Epic 2~~ | Architect ✓ |
