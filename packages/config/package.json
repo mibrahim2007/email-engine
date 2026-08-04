@@ -1,0 +1,23 @@
+{
+  "name": "@repo/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint/base": "./eslint/base.js",
+    "./eslint/next": "./eslint/next.js",
+    "./tsconfig/base.json": "./tsconfig/base.json",
+    "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
+    "./tailwind/theme.css": "./tailwind/theme.css"
+  },
+  "scripts": {
+    "lint": "echo \"@repo/config: config only, nothing to lint\"",
+    "typecheck": "echo \"@repo/config: config only, nothing to typecheck\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "eslint-config-next": "16.2.12",
+    "typescript-eslint": "8.65.0"
+  }
+}

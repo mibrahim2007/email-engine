@@ -1,0 +1,15 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm 11 blocks postinstall scripts unless a package is named here. Each of
+# these compiles or downloads a platform binary and does nothing else:
+#   esbuild        — the bundler Vitest runs on
+#   sharp          — next/image optimisation
+#   unrs-resolver  — the ESLint import resolver
+# Anything added to this list is a supply-chain decision; keep it short and
+# keep the reason next to the name.
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

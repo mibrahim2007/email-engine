@@ -1,0 +1,56 @@
+name: CI
+
+# Story 1.1 AC5. Application checks — typecheck, lint, unit tests.
+#
+# Deliberately separate from db.yml, which runs the RLS suites against a
+# throwaway Postgres. Two independent check runs on the same PR: this one
+# breaks when the application does, that one breaks when tenant isolation
+# does, and neither masks the other.
+#
+# No paths filter. db.yml scopes itself to migrations/ and tests/ because SQL
+# is the only thing that can break it; application code can be broken from
+# anywhere, so this runs on every pull request.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck, lint, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      # Node 22 is the runtime Architecture §3 pins for Vercel Functions.
+      # .nvmrc holds the same number so local and CI cannot drift.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      # Catches what typecheck cannot: a route that compiles but fails to
+      # prerender, and the static/dynamic split AC3 depends on.
+      - name: Build
+        run: pnpm build
