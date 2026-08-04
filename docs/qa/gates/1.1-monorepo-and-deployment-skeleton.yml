@@ -1,0 +1,143 @@
+schema: 1
+story: "1.1"
+title: Monorepo and deployment skeleton
+reviewed_by: QA
+reviewed_at: "2026-08-04"
+
+gate: CONCERNS
+# Not PASS: two of five acceptance criteria cannot be verified in this
+# environment, because both need account access no agent has. The code that
+# could be checked was checked and is sound — the gate reflects unverifiable
+# scope, not defects found.
+# Not FAIL: nothing implemented is wrong, and the blocked criteria were
+# reported as blocked rather than stubbed, which is what the story asked for.
+
+acceptance_criteria:
+  - id: AC1
+    text: Turborepo with apps/web and packages/{db,email,ai,ui,config}
+    status: PASS
+    evidence: 7 workspace projects resolve; all five packages present.
+  - id: AC2
+    text: Builds, typechecks, lints with zero errors
+    status: PASS
+    evidence: >
+      typecheck 6/6, lint 6/6, test 1 file / 2 tests, build compiles.
+      Reproduced on GitHub runners in 44s (run 30905847667).
+  - id: AC3
+    text: /api/health returns { status, version, commit } on a deployed URL
+    status: PARTIAL
+    evidence: >
+      Served locally and hit over HTTP — 200 application/json,
+      {"status":"ok","version":"0.1.0","commit":"local"}. Build output confirms
+      the route is dynamic (f), not prerendered, so the commit cannot go stale.
+    blocked_by: vercel-project-not-linked
+  - id: AC4
+    text: Pushing a branch produces a Vercel preview deployment
+    status: BLOCKED
+    blocked_by: vercel-project-not-linked
+  - id: AC5
+    text: CI runs typecheck, lint, unit tests on every PR and blocks merge
+    status: PARTIAL
+    evidence: >
+      .github/workflows/ci.yml runs and passes. It also runs build, which is
+      beyond the criterion and justified — build catches a route that compiles
+      but fails to prerender, which typecheck cannot.
+    blocked_by: branch-protection-not-enabled
+
+verification_performed:
+  - name: Lint rules are enforced, not decorative
+    result: PASS
+    detail: >
+      Negative control. A probe file reading process.env outside server/env.ts
+      and declaring an `any` produced exactly two errors — no-restricted-properties
+      (§15.6) and no-explicit-any (§15.11). Probe removed. The env.ts exemption
+      is scoped to that one file, so the rule keeps its teeth.
+  - name: Tailwind actually scans the app
+    result: PASS
+    detail: >
+      Real risk in Tailwind v4, whose source detection is relative to the CSS
+      file — and theme.css lives in packages/config, not apps/web. Checked the
+      built stylesheet for utilities used only by the landing page:
+      mx-auto, min-h-dvh, max-w-2xl, tracking-tight all present. It resolves.
+  - name: Lockfile is honest
+    result: PASS
+    detail: pnpm install --frozen-lockfile succeeds; CI uses the same flag.
+  - name: db.yml untouched
+    result: PASS
+    detail: git diff empty. The RLS merge blocker is intact and independent.
+
+findings:
+  - id: QA-1
+    severity: low
+    title: No .gitattributes — line-ending churn
+    detail: >
+      Every commit today warned "LF will be replaced by CRLF". Nothing breaks
+      today because CI runs on ubuntu and the files are stored LF, but a
+      contributor whose editor writes CRLF would produce a diff touching every
+      line of a file they barely changed.
+    status: FIXED_IN_REVIEW
+    fix: >
+      Added .gitattributes — `* text=auto`, with eol=lf pinned for .sh, .py,
+      .yml, .yaml and .nvmrc, and pnpm-lock.yaml marked generated.
+
+  - id: QA-2
+    severity: low
+    title: packages/config typechecks nothing
+    detail: >
+      Its typecheck script is an echo, so eslint/base.js and eslint/next.js are
+      never checked. A typo in a shared ESLint config would surface as a
+      confusing failure in whichever package consumed it.
+    status: ACCEPTED
+    rationale: >
+      Two small JS files that fail loudly on import. Revisit if the package
+      grows real logic; not worth a build step now.
+
+  - id: QA-3
+    severity: low
+    title: Health route reaches package.json by relative path
+    detail: >
+      `import pkg from "../../../../package.json"` breaks if the route moves.
+      Typecheck catches it immediately, so the failure mode is loud.
+    status: ACCEPTED
+
+  - id: QA-4
+    severity: medium
+    title: Architecture §3 pins two versions that are now behind
+    detail: >
+      TypeScript is pinned at 5.9 (7.0.2 available) and Vitest at 3.x (4.1.10
+      available). The Dev agent followed §3 as written rather than upgrading,
+      which is correct — §3 says a change needs an architecture decision.
+    status: OPEN
+    owner: Architect
+    note: Not a defect in this story. Raised here because the story surfaced it.
+
+  - id: QA-5
+    severity: low
+    title: Two dependencies pinned below their latest release
+    detail: >
+      next@16.2.12 and typescript-eslint@8.65.0, because a pnpm supply-chain
+      policy rejects packages inside a minimum-release-age window and 16.3.0 /
+      8.66.0 shipped on 2026-08-03. Pinning below the cutoff was the right
+      response; relaxing the policy would not have been.
+    status: OPEN
+    note: Revisit once those versions age past the window.
+
+blocking_prerequisites:
+  - id: vercel-project-not-linked
+    needs: A human with Vercel account access
+    detail: >
+      `vercel link` is interactive. Root directory must be apps/web.
+      Unblocks AC3 and AC4.
+  - id: branch-protection-not-enabled
+    needs: A human with repository admin rights
+    detail: >
+      Require the `check` job on main. No file in the repository can express
+      this, so the story cannot close it. Note it will also stop the direct
+      pushes to main used throughout this session — that change of workflow is
+      the owner's call, not the agent's.
+
+recommendation: >
+  Hold at Review. The implementation is sound and independently verified where
+  verification was possible. Clear the two prerequisites, confirm a preview
+  deployment serves /api/health with a real commit SHA, then the PO can mark
+  this Done and the SM can draft Story 1.2.

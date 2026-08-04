@@ -1,0 +1,16 @@
+# Normalise line endings. Without this, every commit from a Windows checkout
+# warns "LF will be replaced by CRLF", and a contributor whose editor writes
+# CRLF produces a diff that touches every line of a file they barely changed.
+#
+# Text is stored LF in the repository and checked out native; the files below
+# must be LF in the working tree too, because CRLF breaks them at runtime.
+* text=auto
+
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+.nvmrc text eol=lf
+
+# Generated — keep it out of diffs and out of language statistics.
+pnpm-lock.yaml -diff linguist-generated=true
