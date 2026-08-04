@@ -6,7 +6,7 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 |---|---|---|
 | [1.1](./1.1.md) | Monorepo and deployment skeleton | **Review** — Tasks 1–5 done and verified (typecheck/lint/test/build all green). Blocked on two human prerequisites: link the Vercel project, enable branch protection |
 | [1.2](./1.2.md) | Database, schema, and migrations | **Drafted 2026-08-04** — cannot start until a Neon instance is provisioned. Raises an AC8/AC9 scope conflict for the PO |
-| 1.3 | The tenant-scoped session, and keeping RLS once Drizzle owns the schema | ✅ **Rescoped 2026-08-04** ([F2](../po-validation-2026-08-03.md)) — ready to draft. Now covers `withTenant()`, the two lint rules, the `policies/` run-after pattern, and the real-connection isolation run. Needs a Neon instance to verify |
+| [1.3](./1.3.md) | The tenant-scoped session, and keeping RLS once Drizzle owns the schema | **Draft, not Approved** — drafted two ahead on 2026-08-04. ACs 1–3 are solid; **ACs 4–6 are provisional** because they depend on choices Story 1.2's implementation makes. Re-read against the real `packages/db` before approving |
 | 1.4 | Authentication and organizations | Not drafted |
 | 1.5 | Roles and team management | Not drafted |
 | 1.6 | Application shell | Not drafted |
