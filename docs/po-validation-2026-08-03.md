@@ -5,7 +5,8 @@
 | **Date** | 2026-08-03 |
 | **Validated** | [PRD](../Email%20Engine%20PRD.md) v1.0 · [Architecture](../Email%20Engine%20Architecture.md) v1.0 (+§9.5, §6.7) · [Front-End Spec](../Email%20Engine%20Front-End%20Spec.md) v1.1 |
 | **Verdict** | 🟡 **CONCERNS** — Epic 1 Story 1.1 is cleared to start; seven findings need owners, three of them before Story 1.2 |
-| **Updated** | 2026-08-04 — **six of seven resolved.** F1 Neon ([§6.8](../Email%20Engine%20Architecture.md)) · F2 Story 1.3 rescoped · F3 FR55/FR56 + Story 1.7 · F4 search design settled · F5 containment not scanning ([§13.3](../Email%20Engine%20Architecture.md)) · F6 `region` column ([§6.8b](../Email%20Engine%20Architecture.md)). **F7 alone remains** — the FR→story traceability matrix, process only |
+| **Updated** | 2026-08-04 — **all seven original findings resolved.** F1 Neon ([§6.8](../Email%20Engine%20Architecture.md)) · F2 Story 1.3 rescoped · F3 FR55/FR56 + Story 1.7 · F4 search design settled · F5 containment not scanning ([§13.3](../Email%20Engine%20Architecture.md)) · F6 `region` column ([§6.8b](../Email%20Engine%20Architecture.md)) · F7 [traceability matrix](./prd/traceability.md) |
+| **Open** | **F8–F11**, raised by the matrix. None blocks Epic 1. **F10 is the one to act on before Story 1.2** — NFR20's point-in-time recovery has no owner anywhere, and Neon provisioning is the cheapest moment it will ever have |
 | **Sharding** | Complete — [prd](./prd/index.md) · [architecture](./architecture/index.md) · [front-end-spec](./front-end-spec/index.md) |
 
 ---
@@ -174,7 +175,22 @@ Cheap to fix now and awkward later — `0003` just went in, so `0004` can carry 
 
 ---
 
-### F7 — FR→story traceability is asserted, not demonstrated 🟡 Process
+### F7 — FR→story traceability is asserted, not demonstrated ✅ RESOLVED 2026-08-04
+
+> **Built: [`docs/prd/traceability.md`](./prd/traceability.md).** All 57 FRs and 25 NFRs against 45 stories, from reading every acceptance criterion rather than keyword-matching.
+>
+> **The PM's FR claim holds — 57 of 57 have a delivering story.** The NFR claim does not entirely: five NFRs have no verifying AC, and one has nothing anywhere.
+>
+> **Four new findings, F8–F11.** All are requirements whose *verification* is missing rather than whose delivery is — which is the class of gap reading alone does not catch, and the reason this table was worth building:
+>
+> | | | |
+> |---|---|---|
+> | **F8** | FR53 (audit events) has three consumers and no builder | 🟡 Same shape as F3 |
+> | **F9** | FR13's ingest latency numbers are asserted nowhere | 🟡 |
+> | **F10** | **NFR20 (point-in-time recovery) appears once, in the NFR list** — no story, no AC, no architecture section | 🔴 Cheapest to fix at Neon provisioning |
+> | **F11** | Five NFRs have no verifying AC; two are covered by the front-end spec the checklist did not consider | 🟡 |
+>
+> *Original finding below.*
 
 PRD §7 records "Every FR maps to at least one story ✅". The epics do not cite FR numbers anywhere, so the mapping exists in the PM's reasoning rather than in the artifact, and cannot be re-verified by anyone else — including the PO.
 

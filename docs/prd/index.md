@@ -33,8 +33,9 @@ Sharded on 2026-08-03 by the PO. Each file is an exact slice of the source; noth
 | Shard | Source |
 |---|---|
 | [checklist-results.md](./checklist-results.md) | §7 — the PM's own checklist |
-| [open-questions.md](./open-questions.md) | §8 — six open, owners assigned |
+| [open-questions.md](./open-questions.md) | §8 — five open (Q5 closed), owners assigned |
 | [next-steps.md](./next-steps.md) | §9 — agent prompts |
+| [**traceability.md**](./traceability.md) | **Not a shard** — FR1–57 and NFR1–25 against all 45 stories. Built 2026-08-04 resolving PO finding F7 |
 
 > [!warning] Two of the six open questions gate epics
 > Question 7 (the recall@8 bar) gates **Epic 5**, and question 1 (the auto-send default) gates **Epic 6**. Neither blocks Epics 1–4, so the dev cycle can start — but they need owners before Epic 4 closes. See [open-questions.md](./open-questions.md).
