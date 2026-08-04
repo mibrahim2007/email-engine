@@ -5,7 +5,7 @@
 | **Date** | 2026-08-03 |
 | **Validated** | [PRD](../Email%20Engine%20PRD.md) v1.0 · [Architecture](../Email%20Engine%20Architecture.md) v1.0 (+§9.5, §6.7) · [Front-End Spec](../Email%20Engine%20Front-End%20Spec.md) v1.1 |
 | **Verdict** | 🟡 **CONCERNS** — Epic 1 Story 1.1 is cleared to start; seven findings need owners, three of them before Story 1.2 |
-| **Updated** | 2026-08-04 — **F1, F3, F4, F5 resolved.** Neon is the target ([§6.8](../Email%20Engine%20Architecture.md)); notifications split into FR55/FR56 + Story 1.7; search design settled; attachment scanning deferred for containment ([§13.3](../Email%20Engine%20Architecture.md)). **Three remain** — F2 (rescope Story 1.3), F6 (data region column), F7 (traceability matrix). None blocks any epic |
+| **Updated** | 2026-08-04 — **six of seven resolved.** F1 Neon ([§6.8](../Email%20Engine%20Architecture.md)) · F2 Story 1.3 rescoped · F3 FR55/FR56 + Story 1.7 · F4 search design settled · F5 containment not scanning ([§13.3](../Email%20Engine%20Architecture.md)) · F6 `region` column ([§6.8b](../Email%20Engine%20Architecture.md)). **F7 alone remains** — the FR→story traceability matrix, process only |
 | **Sharding** | Complete — [prd](./prd/index.md) · [architecture](./architecture/index.md) · [front-end-spec](./front-end-spec/index.md) |
 
 ---
@@ -57,7 +57,13 @@ The schema is applied to a self-hosted PostgreSQL 17 where `pg_available_extensi
 
 ---
 
-### F2 — Epic 1 Story 1.3 is already substantially delivered 🟡 Rescope
+### F2 — Epic 1 Story 1.3 is already substantially delivered ✅ RESOLVED 2026-08-04
+
+> **Rescoped in the PRD.** ACs 1, 2, 4, 5, 6 shipped on 2026-08-03; the story now covers the application half — `withTenant()`, the two ESLint rules enforcing coding standards 1 and 2, and the real connection-path isolation run that `SET ROLE` could not provide.
+>
+> **The rescope found a risk the original story did not see.** RLS is currently guaranteed by hand-written SQL. From Story 1.2, Drizzle generates table DDL — and **a table Drizzle creates arrives without a policy**. Architecture §6.5 anticipated this (policies in `packages/db/migrations/policies/`, run after each generated migration) but no acceptance criterion established the pattern. New ACs 4 and 5 do, and point `rls_policy_coverage.sql` at the Drizzle-migrated schema so the safety net covers the new source of tables.
+>
+> *Original finding below.*
 
 Five of its six acceptance criteria are done and running in CI as of today:
 
@@ -152,7 +158,11 @@ Either write the FR and the story, or make the deferral explicit: scanning is po
 
 ---
 
-### F6 — NFR22 (data region) has no representation in the schema 🟡 Minor
+### F6 — NFR22 (data region) has no representation in the schema ✅ RESOLVED 2026-08-04
+
+> **Ruled: a real `region text NOT NULL DEFAULT 'us-east'` column, not a `settings` jsonb key** — [Architecture §6.8b](../Email%20Engine%20Architecture.md). Everything else in `settings` is tenant preference the application reads; region determines where rows may physically live and will constrain connection routing. A compliance answer that depends on a jsonb key nobody can constrain or index is not an answer. Lands in the Drizzle schema in Story 1.2.
+>
+> *Original finding below.*
 
 NFR22: "Data region shall be a tenant-level attribute, even if only one region is offered at launch." Epic 8's AC repeats it: "Data region is a tenant attribute."
 

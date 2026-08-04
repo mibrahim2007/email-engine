@@ -6,7 +6,7 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 |---|---|---|
 | [1.1](./1.1.md) | Monorepo and deployment skeleton | **Approved — ready for Dev** |
 | 1.2 | Database, schema, and migrations | ✅ **Unblocked** — [F1 ruled](../po-validation-2026-08-03.md): Neon is the target ([Architecture §6.8](../../Email%20Engine%20Architecture.md)). AC2 corrected to `vector`, `pg_trgm`, `citext`. Ready to draft; needs a provisioned Neon instance to finish |
-| 1.3 | Row-level security and the isolation test suite | ⛔ Needs rescoping — [PO finding F2](../po-validation-2026-08-03.md): five of six ACs already shipped. Rescope to `withTenant()` before drafting |
+| 1.3 | The tenant-scoped session, and keeping RLS once Drizzle owns the schema | ✅ **Rescoped 2026-08-04** ([F2](../po-validation-2026-08-03.md)) — ready to draft. Now covers `withTenant()`, the two lint rules, the `policies/` run-after pattern, and the real-connection isolation run. Needs a Neon instance to verify |
 | 1.4 | Authentication and organizations | Not drafted |
 | 1.5 | Roles and team management | Not drafted |
 | 1.6 | Application shell | Not drafted |

@@ -30,15 +30,19 @@
 
 ---
 
-**Story 1.3 — Row-level security and the isolation test suite**
+**Story 1.3 — The tenant-scoped session, and keeping RLS once Drizzle owns the schema**
 *As a security-conscious buyer, I want tenant isolation enforced by the database, so that an application bug cannot expose another customer's mail.*
 
-1. Every table with a `tenant_id` column has RLS `ENABLED` and `FORCED`, with a policy carrying both `USING` and `WITH CHECK`.
-2. The application connects as a role that is not the table owner and lacks `BYPASSRLS`.
-3. `withTenant()` opens a transaction and sets `app.tenant_id` transaction-locally; no repository function accepts a connection obtained any other way.
-4. An automated suite seeds two tenants and asserts, per table, that tenant A's session cannot `SELECT`, `UPDATE`, `DELETE`, or `INSERT` against tenant B's rows.
-5. A schema-walking test fails the build if any table with a `tenant_id` column lacks a forced policy.
-6. This suite runs on every PR and blocks merge.
+> **Rescoped 2026-08-04 per PO finding F2.** The original story's ACs 1, 2, 4, 5, and 6 shipped on 2026-08-03 as `migrations/0001`–`0002`, `tests/rls_isolation.sql` (10/10), `tests/rls_policy_coverage.sql` (16/16), and `.github/workflows/db.yml`. Re-implementing them would rebuild working, tested infrastructure. What is left is the **application half**, plus a risk the original story did not see: RLS is currently guaranteed by hand-written SQL, and from Story 1.2 Drizzle generates the table DDL. A table Drizzle creates arrives **without a policy**.
+
+1. `withTenant()` opens a transaction, sets `app.tenant_id` transaction-locally, and returns a `tx`; every repository function takes that `tx`. No raw `db` is exported outside `server/db`.
+2. An ESLint `no-restricted-imports` rule fails the build on any import of `db` outside `server/db` (coding standard 1), and a test proves the rule fires.
+3. No repository function contains a literal `tenant_id = ` filter (coding standard 2) — a lint rule or a test asserts this, because a manual filter hides a missing policy rather than compensating for one.
+4. RLS policy DDL lives in `packages/db/migrations/policies/` and runs **after** each Drizzle-generated migration, per Architecture §6.5, so a Drizzle-created table cannot reach a deployed environment unpoliced.
+5. `tests/rls_policy_coverage.sql` runs against the Drizzle-migrated schema, not only the hand-written one — the existing suite is the safety net for AC4, and this AC is what points it at the new source of tables.
+6. The isolation suite is re-run **connected as `email_engine_app` over the real connection path**, not via `SET ROLE`, proving the credential and `pg_hba` path and not merely the policies. *(Carried from the 2026-08-02 open loop; possible for the first time once Neon is provisioned.)*
+
+*Prerequisite: a provisioned Neon instance (Story 1.2). ACs 4–6 cannot be verified without one.*
 
 ---
 

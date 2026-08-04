@@ -294,6 +294,22 @@ Four reasons, in the order they bind:
 
 **Consequently closed:** the `pgvector` + `postgresql17-contrib` shell-access item, and the `email_engine_app` password item. Neither is a blocker any more — Neon ships `pgvector`, and Neon manages the credential. Both were open for two days and are dissolved rather than solved.
 
+### 6.8b Ruling on PO finding F6 — data region (2026-08-04)
+
+NFR22: "Data region shall be a tenant-level attribute, even if only one region is offered at launch." `tenants` has no such column, and Epic 8's AC repeats the requirement.
+
+**Ruling: a real column, not a `settings` key.**
+
+```sql
+region text NOT NULL DEFAULT 'us-east'
+```
+
+`settings` jsonb was the tempting alternative and is wrong here. Everything else in `settings` — persona, tone, auto-send threshold, business hours — is tenant *preference* that only the application reads. Region is different in kind: it determines **where rows may physically live**, it will eventually constrain connection routing, and a compliance answer that depends on a jsonb key nobody can constrain or index is not an answer. A `CHECK` on a column can enumerate the regions actually offered; a jsonb key cannot.
+
+The default means every existing and future tenant has a truthful region from day one, so Epic 8 reports a fact rather than backfilling a guess.
+
+**Lands in the Drizzle schema in Story 1.2** alongside the `tenants` definition — no hand-written migration, since Neon has no schema yet (§6.9).
+
 ### 6.9 `notifications`, and where migrations live from here
 
 **The table** (PO finding F3, PRD FR55, Story 1.7). Tenant-scoped and per-recipient, so RLS applies on `tenant_id` as everywhere else:
