@@ -13,3 +13,16 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+
+# Refuse packages published inside pnpm's minimum-release-age window instead of
+# silently excluding them.
+#
+# Without this, pinning an exact version pnpm considers too new does NOT fail —
+# pnpm writes the package into a `minimumReleaseAgeExclude` list and installs it
+# anyway, reporting the exclusion in one line of install output. A security
+# control that disables itself when you ask firmly is not a control.
+#
+# With strict on, that path requires a deliberate prompt. If a package is
+# genuinely needed before it has aged, exclude it by hand with a reason —
+# the same rule as allowBuilds above.
+minimumReleaseAgeStrict: true
