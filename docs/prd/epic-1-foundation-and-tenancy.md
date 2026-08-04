@@ -28,8 +28,8 @@
 5. CI fails if the committed schema and migrations have drifted.
 6. A seed script creates two tenants with distinct users for local development.
 7. **Point-in-time recovery is enabled with a retention window of at least 7 days, and a restore to an arbitrary point is exercised once and documented** (NFR20). *(Added 2026-08-04 per traceability finding F10 — NFR20 had no owning story anywhere. It is a setting on the instance this story provisions, so this is the cheapest moment it will ever have.)*
-8. The schema carries the two corrections ruled after the architecture was written: `tenants.region` (Architecture §6.8b) and `attachments.scan_status` defaulting to `not_scanned` (§13.3).
-9. The Drizzle schema defines the **intended** types — `vector(1536)`, `citext`, HNSW and trigram indexes — not the substitutions in `migrations/0001`, which were forced by an instance this story does not use (§6.8c). `migrations/0001`–`0003` are never applied to Neon.
+8. `tenants` carries `region text NOT NULL DEFAULT 'us-east'` (Architecture §6.8b, NFR22) and `slug` is `citext`. *(Tightened 2026-08-04: this previously also named `attachments.scan_status`, a table Epic 2 creates — Story 2.5 AC7 already carries that instruction.)*
+9. The Drizzle schema defines **intended** types, never the substitutions in `migrations/0001`, which were forced by an instance this story does not use. `migrations/0001`–`0003` are **never applied to Neon** (§6.8c); the live schema comes from Drizzle. *(Tightened 2026-08-04: this previously named `vector(1536)` and the HNSW index, which belong to `kb_chunks` in Epic 4. AC2's extensions are enabled here so those stories can use them.)*
 
 ---
 

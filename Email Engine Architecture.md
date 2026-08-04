@@ -184,7 +184,7 @@ graph TB
 
 | Category | Technology | Version | Purpose | Rationale |
 |---|---|---|---|---|
-| Language | TypeScript | 5.9 | Everything | One language across app, workflows, and DB schema |
+| Language | TypeScript | **5.9 — held deliberately** | Everything | One language across app, workflows, and DB schema. **Not 7.x:** `typescript-eslint` declares `typescript: >=4.8.4 <6.1.0`, so TypeScript 7 has no lint support and adopting it would disable the §15 rules that gate merges. Revisit when typescript-eslint ships a range covering 7 |
 | Framework | Next.js | 16.x (App Router) | Dashboard + API | RSC, Server Actions, Cache Components, first-party on Vercel |
 | Runtime | Node.js | 22.x | Functions | `mailparser`, IMAP, and crypto need Node APIs; not Edge |
 | UI kit | shadcn/ui | latest CLI | Components | Code you own, not a dependency you fight. Registry-installed into `packages/ui` |
@@ -210,12 +210,22 @@ graph TB
 | Billing | Stripe | latest | Subscriptions, metering | Usage-based seats + message volume |
 | Email send | Resend | latest | Transactional + tenant outbound | Same vendor for inbound webhook parsing |
 | Email parse | mailparser + DOMPurify | latest | MIME → safe HTML/text | Never render raw customer HTML |
-| Testing | Vitest + Testing Library | 3.x | Unit + component | Fast, ESM-native |
+| Testing | Vitest + Testing Library | **4.x** *(was 3.x; moved 2026-08-04)* | Unit + component | Fast, ESM-native. Taken at two tests rather than two hundred — a major version is cheapest to absorb before the suite exists |
 | E2E | Playwright | 1.5x | Critical flows | Runs against preview URLs |
 | Observability | Vercel Observability + Sentry | — | Logs, traces, errors | Gateway gives per-request token/cost attribution |
 | Analytics | PostHog | — | Product analytics | Self-servable, tenant-scoped |
 
 **Deliberately excluded:** no Redis-backed job queue (Workflow covers it), no separate vector database (pgvector is enough at this scale), no GraphQL (REST + Server Actions), no provider-specific AI SDK (`@anthropic-ai/sdk`, `openai`, etc. — the Gateway is the only AI dependency).
+
+> [!note] Version review, 2026-08-04 — resolving [QA-4](./docs/qa/gates/1.1-monorepo-and-deployment-skeleton.yml)
+> Story 1.1 flagged that two pins had fallen behind. Both were checked against what the toolchain can actually take, not against what npm reports as latest:
+>
+> - **TypeScript stays at 5.9.** Not conservatism — `typescript-eslint` caps at `<6.1.0`, so TypeScript 7 would silently disable every §15 lint rule that gates a merge. The reason is now in the table so this is not re-litigated at each release.
+> - **Vitest moves to 4.x.** Nothing blocked it, and the suite is two tests. A major version is cheapest to absorb before there is anything to migrate — the same reasoning that put point-in-time recovery in the story that provisions the database rather than a later one.
+>
+> **The rule this table states still holds:** a Dev agent installs what is written here and raises a flag instead of upgrading. Story 1.1 did exactly that, which is why this review happened at all.
+>
+> A second constraint worth recording: a pnpm supply-chain policy rejects packages published inside a minimum-release-age window. Story 1.1 pinned `next@16.2.12` and `typescript-eslint@8.65.0` below that cutoff rather than relaxing the policy. **Pin below the cutoff; do not relax it.**
 
 ---
 

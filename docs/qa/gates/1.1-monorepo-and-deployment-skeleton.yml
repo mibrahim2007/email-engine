@@ -107,9 +107,19 @@ findings:
       TypeScript is pinned at 5.9 (7.0.2 available) and Vitest at 3.x (4.1.10
       available). The Dev agent followed §3 as written rather than upgrading,
       which is correct — §3 says a change needs an architecture decision.
-    status: OPEN
+    status: RESOLVED
     owner: Architect
-    note: Not a defect in this story. Raised here because the story surfaced it.
+    resolved_at: "2026-08-04"
+    resolution: >
+      Reviewed against what the toolchain can take, not what npm calls latest.
+      TypeScript STAYS at 5.9 — typescript-eslint declares typescript
+      >=4.8.4 <6.1.0, so TypeScript 7 has no lint support and adopting it would
+      silently disable the §15 rules that gate merges. The reason is now in the
+      §3 table so it is not re-litigated each release.
+      Vitest MOVES to 4.x — nothing blocked it and the suite is two tests; a
+      major version is cheapest to absorb before there is anything to migrate.
+      Upgraded and re-verified: typecheck, lint, test (2 passed), build all
+      green on vitest 4.1.10.
 
   - id: QA-5
     severity: low
