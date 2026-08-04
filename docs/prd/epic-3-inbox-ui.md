@@ -72,4 +72,3 @@
 5. Keyboard focus order matches visual order and all actions are reachable without a mouse.
 
 ---
-

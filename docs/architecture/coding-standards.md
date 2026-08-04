@@ -19,4 +19,3 @@
 12. **Naming:** components `PascalCase`, hooks `useCamelCase`, DB tables/columns `snake_case`, routes `kebab-case`, API fields `camelCase` in JSON.
 
 ---
-

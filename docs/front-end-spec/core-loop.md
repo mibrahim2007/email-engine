@@ -82,4 +82,3 @@ PRD §3.2 makes escalation "a first-class state, not an error", and Story 5.4 AC
 - The retrieval done before stopping is not discarded; it collapses behind a disclosure.
 
 ---
-

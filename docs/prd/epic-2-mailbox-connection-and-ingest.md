@@ -59,6 +59,8 @@
 3. A documented XSS corpus produces no script execution and no external resource load.
 4. Remote images are blocked by default with an explicit "show images" affordance.
 5. Attachments are uploaded to Blob storage with content type, size, and checksum recorded; oversized or disallowed types are rejected with a recorded reason.
+6. The stored content type is the **true type read from magic bytes**, not the claimed MIME or the extension; a mismatch is recorded and the true type wins. *(FR57, added 2026-08-04.)*
+7. Executable types are refused at ingest. Blob URLs are served `Content-Disposition: attachment` with `X-Content-Type-Options: nosniff`, and `scan_status` is written as `not_scanned` — never `pending`, which would imply a queue that does not exist.
 
 ---
 
@@ -94,4 +96,3 @@
 5. A mailbox failing repeatedly is backed off exponentially and flagged, not polled in a tight loop.
 
 ---
-

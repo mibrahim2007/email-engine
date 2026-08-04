@@ -1,12 +1,6 @@
 > **Shard of [PRD](../../Email%20Engine%20PRD.md) §6 Epic 1.**
 > Derived file — edit the source document and re-shard, never this copy.
 
----
-
-## 6. Epic details
-
-> Story format: `As a <role>, I want <capability>, so that <benefit>.` Acceptance criteria are testable and numbered. The SM expands each story into a self-contained story file with the relevant architecture excerpts embedded.
-
 ### Epic 1 — Foundation and tenancy
 
 **Goal:** stand up the deployable skeleton and the isolation guarantee everything else rests on. Nothing ships after this epic that could leak data across tenants.
@@ -94,4 +88,3 @@
 6. A notification that duplicates a conversation timeline event links to it rather than restating it; the timeline stays the source of truth (Architecture §6.7).
 
 ---
-

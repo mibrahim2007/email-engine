@@ -41,4 +41,3 @@
 **Deliberately excluded:** no Redis-backed job queue (Workflow covers it), no separate vector database (pgvector is enough at this scale), no GraphQL (REST + Server Actions), no provider-specific AI SDK (`@anthropic-ai/sdk`, `openai`, etc. — the Gateway is the only AI dependency).
 
 ---
-

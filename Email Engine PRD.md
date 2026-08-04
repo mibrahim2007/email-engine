@@ -72,6 +72,7 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 - Live chat, SMS, WhatsApp, or social channels — email only.
 - Full ticketing (SLAs, macros, custom workflows, CSAT surveys). This is a reply engine, not a helpdesk replacement.
 - Multi-language reply generation beyond detect-and-escalate. Detection ships; non-English drafting does not.
+- **Attachment malware scanning.** Containment ships (FR57); detection does not. Every scanning option available conflicts with a requirement already held — self-hosted ClamAV violates NFR25, and a third-party scanning API forwards customers' files to a fourth party, which NFR21 and the security-review positioning in §1.1 both make worse. Reasoning and the post-MVP re-entry path are in Architecture §13.3. *(Made explicit 2026-08-04; §13.1 previously promised a scan no story built.)*
 - **Slack, Teams, and native push notifications.** In-app (FR55) plus operational email (FR56) is the whole notification surface. A tenant wanting Slack wires it through the signed `conversation.escalated` webhook FR48 already delivers — no first-party integration in MVP. *(Made explicit 2026-08-03; Epic 5's "optionally notifies a channel" previously implied one.)*
 - Voice/phone, mobile native apps, browser extension.
 - Fine-tuning or per-tenant model training. Retrieval only.
@@ -174,6 +175,10 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 
 - **FR55** — The system shall maintain a per-user, tenant-scoped in-app notification centre with an unread count, covering assignment, escalation, mailbox health, and delivery failure. Notifications shall be dismissible and shall never be the only record of an event that also belongs in the conversation timeline.
 - **FR56** — The system shall additionally send transactional email to owners and admins for the two conditions that mean the product has silently stopped working — **a mailbox connection has broken** and **an outbound message has exhausted its retries** — deduplicated per condition per mailbox so a single broken connection produces one alert, not one per poll.
+
+**Attachment safety** *(added 2026-08-04 resolving PO finding F5 — see Architecture §13.3 for why scanning is deferred)*
+
+- **FR57** — The system shall contain rather than scan attachments: it shall determine each file's true type from its magic bytes rather than its extension or claimed MIME, refuse executable types at ingest, serve every attachment download-only from a non-application origin with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`, display the true type to the agent, and **state in the interface that attachments are not scanned for malware**. `scan_status` shall default to `not_scanned` and shall never claim a scan that did not happen.
 
 ### 2.2 Non-functional requirements
 
@@ -446,6 +451,8 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 3. A documented XSS corpus produces no script execution and no external resource load.
 4. Remote images are blocked by default with an explicit "show images" affordance.
 5. Attachments are uploaded to Blob storage with content type, size, and checksum recorded; oversized or disallowed types are rejected with a recorded reason.
+6. The stored content type is the **true type read from magic bytes**, not the claimed MIME or the extension; a mismatch is recorded and the true type wins. *(FR57, added 2026-08-04.)*
+7. Executable types are refused at ingest. Blob URLs are served `Content-Disposition: attachment` with `X-Content-Type-Options: nosniff`, and `scan_status` is written as `not_scanned` — never `pending`, which would imply a queue that does not exist.
 
 ---
 
@@ -894,7 +901,7 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 | 2 | Data residency — single region now, or tenant→region routing designed up front? | Epic 8 | Architect |
 | 3 | Model choice — tenant-selectable or a plan attribute we control? | Epic 5, pricing | PM |
 | 4 | Pricing shape — per seat, per message, or hybrid? | Epic 8 | PM |
-| 5 | Attachment malware scanning vendor | Epic 2 | Architect |
+| ~~5~~ | ~~Attachment malware scanning vendor~~ **Closed 2026-08-04: none.** The question was unanswerable as posed — it asked *which vendor*, and the answer is that scanning is deferred and containment ships instead (FR57). Reasoning in [[Email Engine Architecture]] §13.3 | ~~Epic 2~~ | Architect ✓ |
 | ~~6~~ | ~~Does MVP need a shared team view of who is currently viewing a conversation?~~ **Resolved 2026-08-03: no** — assignment plus a send-time conflict check. Reasoning and revisit criteria in [[Email Engine Front-End Spec]] §13. | ~~Epic 3~~ | UX Expert ✓ |
 | 7 | Retrieval quality bar — what recall@8 gates Epic 5? | Epic 4 → 5 | Architect + PM |
 

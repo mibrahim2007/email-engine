@@ -43,4 +43,3 @@ Chunk: `id`, `tenant_id`, `source_id`, `content`, `token_count`, `embedding vect
 `id`, `tenant_id`, `period`, `metric` ∈ `messages_processed | ai_replies | tokens_in | tokens_out`, `quantity`, `recorded_at` — feeds Stripe metered billing.
 
 ---
-

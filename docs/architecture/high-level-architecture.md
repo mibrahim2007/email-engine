@@ -91,4 +91,3 @@ graph TB
 | **Tool-calling agent, not prompt-chaining** | `packages/ai` | The model decides whether to search the KB, look up an order, escalate, or reply. Deterministic chains break on the long tail. |
 
 ---
-

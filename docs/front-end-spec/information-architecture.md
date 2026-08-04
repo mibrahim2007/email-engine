@@ -62,4 +62,3 @@ Matches Architecture §9.1 exactly. `/onboarding` is the one addition.
 **Secondary — none.** No tabs, no breadcrumbs. Depth is two levels everywhere; a third level would be a design failure.
 
 ---
-

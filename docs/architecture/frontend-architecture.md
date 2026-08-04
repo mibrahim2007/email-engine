@@ -157,4 +157,3 @@ The real risk is a long session accumulating appended pages. That is solved by b
 **Revisit if** INP p75 on the inbox exceeds 200ms (NFR1) with the bounded window in place. That is a measurement, so the decision is reversible on evidence rather than on taste.
 
 ---
-

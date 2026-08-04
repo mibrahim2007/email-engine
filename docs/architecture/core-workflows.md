@@ -71,4 +71,3 @@ Upload/URL → Workflow: fetch → extract (pdf/html/md) → chunk (~500 tokens,
 Clerk org created → webhook → `tenants` row → seed default persona + FAQ → OAuth mailbox connect → initial 30-day backfill (throttled, separate workflow) → "connected" state in the dashboard.
 
 ---
-

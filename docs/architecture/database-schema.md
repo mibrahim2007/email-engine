@@ -332,4 +332,3 @@ The partial index is the one query that matters — an unread badge on every pag
 Both folders coexist permanently. `migrations/` is history and extensions; `packages/db/migrations` is the live schema. Story 1.2 should make the baseline explicit so Drizzle does not try to recreate sixteen tables that already exist.
 
 ---
-

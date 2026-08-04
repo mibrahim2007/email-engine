@@ -72,4 +72,3 @@
 5. A prompt-injection corpus in the playground produces no unauthorized tool call and no data disclosure.
 
 ---
-

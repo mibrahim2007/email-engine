@@ -50,4 +50,3 @@
 5. Tenant action responses are validated against a schema before entering the model context.
 
 ---
-

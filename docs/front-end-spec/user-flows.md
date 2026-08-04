@@ -93,4 +93,3 @@ Drag file / paste URL / paste text → source row appears immediately with `pend
 Never a global spinner. Sources index independently and the list must show that.
 
 ---
-

@@ -24,4 +24,3 @@ Public API at `/api/v1`, authenticated by tenant API key (`Authorization: Bearer
 **Conventions:** cursor pagination (`?cursor=&limit=`, max 100), `application/problem+json` errors, `X-RateLimit-*` headers, `Idempotency-Key` honored on all POSTs for 24h.
 
 ---
-

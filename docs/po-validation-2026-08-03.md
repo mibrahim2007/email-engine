@@ -5,7 +5,7 @@
 | **Date** | 2026-08-03 |
 | **Validated** | [PRD](../Email%20Engine%20PRD.md) v1.0 · [Architecture](../Email%20Engine%20Architecture.md) v1.0 (+§9.5, §6.7) · [Front-End Spec](../Email%20Engine%20Front-End%20Spec.md) v1.1 |
 | **Verdict** | 🟡 **CONCERNS** — Epic 1 Story 1.1 is cleared to start; seven findings need owners, three of them before Story 1.2 |
-| **Updated** | 2026-08-03 — **F1, F3, and F4 resolved.** Neon is the target ([Architecture §6.8](../Email%20Engine%20Architecture.md)); notifications split into FR55/FR56 + Story 1.7; search design settled. **Four findings remain**, none blocking Epic 1 |
+| **Updated** | 2026-08-04 — **F1, F3, F4, F5 resolved.** Neon is the target ([§6.8](../Email%20Engine%20Architecture.md)); notifications split into FR55/FR56 + Story 1.7; search design settled; attachment scanning deferred for containment ([§13.3](../Email%20Engine%20Architecture.md)). **Three remain** — F2 (rescope Story 1.3), F6 (data region column), F7 (traceability matrix). None blocks any epic |
 | **Sharding** | Complete — [prd](./prd/index.md) · [architecture](./architecture/index.md) · [front-end-spec](./front-end-spec/index.md) |
 
 ---
@@ -126,7 +126,21 @@ Needs either a generated `tsvector` column plus GIN on `messages` — both core,
 
 ---
 
-### F5 — Attachment malware scanning: a column, an open question, and no requirement 🟡 Gap
+### F5 — Attachment malware scanning: a column, an open question, and no requirement ✅ RESOLVED 2026-08-04
+
+> **Ruled: no scanning in MVP. Containment ships instead** — [Architecture §13.3](../Email%20Engine%20Architecture.md), PRD FR57.
+>
+> **The finding was understated.** §13.1's security table did not merely omit scanning — it *promised* it: "malware scan before the blob URL is ever surfaced." A control asserted in the document a buyer's security reviewer reads, with no FR requiring it and no story building it, is worse than a gap. §13.1 is corrected.
+>
+> Every scanning option conflicts with a requirement already held: self-hosted ClamAV violates **NFR25**, the requirement that settled F1 one day earlier; a third-party API forwards customers' invoices and contracts to a fourth party, which makes **NFR21** and §1.1's security-review positioning worse rather than better.
+>
+> The residual risk is narrow because the file never executes anywhere we control — never rendered inline, never parsed by the AI (§6.4 reads `kb_chunks` only), served download-only from a separate origin to the tenant's own agents. What ships is true-type detection from magic bytes, executables refused at ingest, `Content-Disposition: attachment` + `nosniff`, an interface that **says** attachments are unscanned, and `scan_status` defaulting to `not_scanned` rather than `pending` — a default that claimed a queue existed.
+>
+> Post-MVP re-entry is designed: the states already cover a scanner, and the rule is fixed — the blob URL is withheld until `clean`. No schema change needed.
+>
+> Closes PRD §8 Q5 and Architecture §17's vendor decision. Both asked *which vendor*; the answer is none.
+>
+> *Original finding below, kept as the record.*
 
 The schema carries `attachments.scan_status` defaulting to `'pending'`. PRD §8 question 5 names "attachment malware scanning vendor" as gating Epic 2. But there is **no FR for malware scanning and no story with an acceptance criterion covering it** — the capability exists only as a column and a question.
 
@@ -168,7 +182,7 @@ Epic order holds. Each epic's technical foundations are laid by an earlier one, 
 
 ```
 Epic 1  Foundation ──────────────────▶ Story 1.1 drafted; 1.7 added for F3
-Epic 2  Ingest      ── needs F5
+Epic 2  Ingest      ── clear (F5 resolved 08-04)
 Epic 3  Inbox UI    ── needs F4's migration (design settled)
 Epic 4  Knowledge   ── needs a provisioned Neon instance
 Epic 5  AI replies  ── needs Epic 4 + Q7 (recall bar)
@@ -179,7 +193,7 @@ Epic 8  Analytics   ── needs F6, Q2, Q4
 
 *(Updated 2026-08-03.)* **Epic 4's gate is now a provisioning step rather than an open question.** F1 ruled for Neon, which ships `pgvector`, so FR29's hybrid retrieval is implementable the moment an instance exists — a Vercel Marketplace click. Epic 1 gained Story 1.7 (notification foundation) from F3, which lands before Epic 2's first consumer.
 
-**The largest remaining item is F5** — attachment malware scanning, which has a column and an open question but no requirement.
+*(Updated 2026-08-04.)* **No finding blocks any epic.** The three remaining are F2 (rescope Story 1.3 before drafting), F6 (a data-region column, needed by Epic 8), and F7 (the traceability matrix, process only). The real gates are now operational rather than editorial: **a provisioned Neon instance**, and PRD §8 questions 1 and 7 before Epics 5 and 6.
 
 ---
 

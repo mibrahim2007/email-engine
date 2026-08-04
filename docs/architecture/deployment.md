@@ -31,4 +31,3 @@
 No provider AI keys — model access is entirely through the Gateway credential.
 
 ---
-

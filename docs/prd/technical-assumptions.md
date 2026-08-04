@@ -15,4 +15,3 @@ These are decisions the PM is making as constraints on the Architect. The ration
 - **Deployment:** Vercel, preview deployment per PR with a database branch. Migrations must be backward-compatible with the previous deploy (expand/contract).
 
 ---
-

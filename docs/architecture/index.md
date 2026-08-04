@@ -5,6 +5,8 @@
 
 Sharded per Architecture §1.3 on 2026-08-03 by the PO. Each file is an exact slice of the source; nothing was rewritten.
 
+> **Regenerate with `python scripts/reshard.py`** after editing any source document. It derives every boundary from the headings, checks the slices are contiguous, and fails loudly on a gap or overlap. Hand-slicing by line number drifts the moment a section is added — it dropped a section heading twice on 2026-08-04 before the script existed.
+
 ## Always loaded by the Dev agent
 
 These three enter every Dev context via `devLoadAlwaysFiles` in `.bmad-core/core-config.yaml`. Keep them lean.

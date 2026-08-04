@@ -22,4 +22,3 @@
 **E2E flows:** sign up → connect mailbox → receive email → review draft → send; KB upload → index → cited reply; invite teammate → assign conversation; API key → REST call; auto-send threshold crossed → sent without human; billing upgrade.
 
 ---
-

@@ -1,7 +1,6 @@
 > **Shard of [PRD](../../Email%20Engine%20PRD.md) §2.**
 > Derived file — edit the source document and re-shard, never this copy.
 
-
 ## 2. Requirements
 
 ### 2.1 Functional requirements
@@ -92,6 +91,10 @@
 - **FR55** — The system shall maintain a per-user, tenant-scoped in-app notification centre with an unread count, covering assignment, escalation, mailbox health, and delivery failure. Notifications shall be dismissible and shall never be the only record of an event that also belongs in the conversation timeline.
 - **FR56** — The system shall additionally send transactional email to owners and admins for the two conditions that mean the product has silently stopped working — **a mailbox connection has broken** and **an outbound message has exhausted its retries** — deduplicated per condition per mailbox so a single broken connection produces one alert, not one per poll.
 
+**Attachment safety** *(added 2026-08-04 resolving PO finding F5 — see Architecture §13.3 for why scanning is deferred)*
+
+- **FR57** — The system shall contain rather than scan attachments: it shall determine each file's true type from its magic bytes rather than its extension or claimed MIME, refuse executable types at ingest, serve every attachment download-only from a non-application origin with `Content-Disposition: attachment` and `X-Content-Type-Options: nosniff`, display the true type to the agent, and **state in the interface that attachments are not scanned for malware**. `scan_status` shall default to `not_scanned` and shall never claim a scan that did not happen.
+
 ### 2.2 Non-functional requirements
 
 **Performance**
@@ -135,4 +138,3 @@
 - **NFR25** — The system shall run on a single-vendor serverless platform with no self-managed infrastructure.
 
 ---
-

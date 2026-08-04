@@ -21,4 +21,3 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 ## 6. Epic details
 
 > Story format: `As a <role>, I want <capability>, so that <benefit>.` Acceptance criteria are testable and numbered. The SM expands each story into a self-contained story file with the relevant architecture excerpts embedded.
-

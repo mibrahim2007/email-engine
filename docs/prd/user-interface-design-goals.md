@@ -45,4 +45,3 @@ Clean, dense, product-neutral — closer to Linear than to Salesforce. Tenants c
 Responsive web, desktop-first. The review loop is a desktop task; the mobile breakpoint targets triage — read, resolve, assign, escalate — not composing. No native apps in MVP.
 
 ---
-

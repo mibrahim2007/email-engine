@@ -15,4 +15,3 @@ Every screen specifies four states. Defaults are not acceptable (Story 3.1 AC4).
 **Optimistic mutation failure** (Story 3.4 AC3): the row reverts with a visible animation and a toast stating what failed and why. A silent revert is worse than no optimism — the agent believes the change landed.
 
 ---
-

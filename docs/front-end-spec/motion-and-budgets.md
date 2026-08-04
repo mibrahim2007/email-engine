@@ -21,4 +21,3 @@ The 200KB ceiling is the binding constraint on component choices. Rich-text edit
 > The real risk is a long session accumulating appended pages, solved by bounding the retained window to roughly 200 rows and dropping from the top with a spacer to hold scroll position. That is an array slice, costs zero bytes, and leaves `content-visibility: auto` doing what it is good at. **Revisit if** inbox INP p75 exceeds 200ms (NFR1) with the bounded window in place — a measurement, so the decision reverses on evidence.
 
 ---
-

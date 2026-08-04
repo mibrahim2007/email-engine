@@ -61,4 +61,3 @@
 5. Admins can trigger re-index of a single source on demand.
 
 ---
-

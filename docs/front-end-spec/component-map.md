@@ -27,4 +27,3 @@ Extends Architecture §9.2. **Bold** entries are additions this spec requires.
 - `ConversationRow` stays a Server Component; the optimistic status change lives in a small client leaf inside it, not by promoting the row.
 
 ---
-

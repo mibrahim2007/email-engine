@@ -26,4 +26,3 @@ PRD §3.2: a power agent never touches the mouse in the review loop.
 - `?` is discoverable from the palette, satisfying Story 3.6 AC2's "discoverable shortcut sheet".
 
 ---
-

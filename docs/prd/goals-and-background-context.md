@@ -47,6 +47,7 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 - Live chat, SMS, WhatsApp, or social channels — email only.
 - Full ticketing (SLAs, macros, custom workflows, CSAT surveys). This is a reply engine, not a helpdesk replacement.
 - Multi-language reply generation beyond detect-and-escalate. Detection ships; non-English drafting does not.
+- **Attachment malware scanning.** Containment ships (FR57); detection does not. Every scanning option available conflicts with a requirement already held — self-hosted ClamAV violates NFR25, and a third-party scanning API forwards customers' files to a fourth party, which NFR21 and the security-review positioning in §1.1 both make worse. Reasoning and the post-MVP re-entry path are in Architecture §13.3. *(Made explicit 2026-08-04; §13.1 previously promised a scan no story built.)*
 - **Slack, Teams, and native push notifications.** In-app (FR55) plus operational email (FR56) is the whole notification surface. A tenant wanting Slack wires it through the signed `conversation.escalated` webhook FR48 already delivers — no first-party integration in MVP. *(Made explicit 2026-08-03; Epic 5's "optionally notifies a channel" previously implied one.)*
 - Voice/phone, mobile native apps, browser extension.
 - Fine-tuning or per-tenant model training. Retrieval only.

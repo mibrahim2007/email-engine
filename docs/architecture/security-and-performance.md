@@ -14,7 +14,7 @@
 | Webhook verification | Provider HMAC + timestamp tolerance before any parsing work |
 | Email HTML | `mailparser` → DOMPurify allow-list → rendered in a sandboxed iframe with a strict CSP; remote images proxied and off by default |
 | Prompt injection | Retrieved KB text and inbound email bodies are wrapped in delimited untrusted blocks; the system prompt states tool use is never authorized by message content; `call_tenant_webhook` requires a pre-registered URL and never accepts a model-supplied host |
-| Attachments | Size cap, type allow-list, malware scan before the blob URL is ever surfaced |
+| Attachments | Size cap, type allow-list, true-type check against magic bytes, download-only from a non-app origin. **No malware scanning in MVP** — see §13.3 |
 | Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls |
 | Audit | Append-only `audit_events`; no `UPDATE`/`DELETE` grant to `app_user` |
 | Headers | CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` via `next.config.ts` |
@@ -35,5 +35,42 @@
 
 **Levers:** partial index on the outbox; leading-`tenant_id` composite indexes; HNSW tuned after real volume; Suspense streaming so the shell paints before tenant data lands; `next/image` for avatars and logos; `next/font` self-hosted; Fluid Compute so a streaming AI request doesn't hold a whole instance; Gateway-level model routing to a smaller tier for classification.
 
----
+### 13.3 Ruling on PO finding F5 — attachment malware scanning (2026-08-04)
 
+[PO validation](./docs/po-validation-2026-08-03.md) F5: `attachments.scan_status` exists and defaults to `'pending'`, PRD §8 question 5 names a vendor decision gating Epic 2, and §13.1 above promised "malware scan before the blob URL is ever surfaced" — while **no FR required it and no story built it**.
+
+The table promising a control that does not exist is worse than the gap. §13.1 is what a buyer's security reviewer reads.
+
+**Ruling: no malware scanning in MVP. Ship containment instead, and say so plainly.**
+
+**Why not scan.** Every available approach conflicts with a requirement this project already holds:
+
+| Approach | Conflict |
+|---|---|
+| Self-hosted ClamAV | **NFR25** — "no self-managed infrastructure". This is the requirement that settled [F1](#68-ruling-on-po-finding-f1--which-database-is-the-target-2026-08-03) one day ago; re-introducing a box to patch would repeat the mistake deliberately |
+| Third-party scanning API (VirusTotal, Cloudmersive, …) | Uploads customers' attachments — invoices, contracts, screenshots of account data — to a **fourth** party. NFR21's GDPR posture and PRD §1.1's "sold into security-reviewed accounts" both get *worse*. "We forward your customers' files to a scanning vendor" fails a security review harder than "we don't scan, and here is why we don't need to" |
+| Cloud-provider scanning (S3/GCS native) | Requires leaving Vercel Blob, so a storage migration and a second vendor for one feature |
+
+**Why the residual risk is narrow.** The attachment never executes anywhere we control:
+
+- It is **never rendered inline** — download only, from Vercel Blob, a different origin to the app.
+- It is **never parsed by the AI.** §6.4's retrieval reads `kb_chunks`; the agent's tools do not open attachments. There is no deserialization path from a hostile file into the model.
+- It reaches **only the tenant's own agents**, never third parties, and only via a signed expiring URL.
+
+What remains is an agent choosing to download and open a file a stranger emailed them — which is true of the mailbox they already have, with or without this product. **Detection is not what protects them; containment and honest labelling are.** Those cost nothing.
+
+**What ships instead (PRD FR57):**
+
+1. **True type from magic bytes**, not the claimed MIME or extension. The UI shows what the file *is*, so `invoice.pdf.exe` displays as an executable.
+2. **Executable types are refused at ingest**, not merely warned about — extending the allow-list Story 2.5 AC5 already builds.
+3. **`Content-Disposition: attachment`** plus `X-Content-Type-Options: nosniff` on every blob URL. Nothing renders in the browser, ever.
+4. **`scan_status` tells the truth.** Default becomes `'not_scanned'`, not `'pending'` — a default of `'pending'` claims a queue exists. States: `not_scanned | clean | infected | failed`.
+5. **The UI says it.** The download affordance states attachments are not scanned. A tenant who needs scanning learns it before trusting us, not after.
+
+**Post-MVP re-entry is designed, not hoped for.** The states above already cover a scanner, and the rule when one arrives is fixed: **the blob URL is withheld until `clean`.** No schema change will be needed — only a workflow step between upload and surfacing.
+
+**Schema note.** The `'pending'` → `'not_scanned'` default correction needs no hand-written migration. `attachments` holds no rows on any instance, and Neon has no schema yet, so this lands in the Drizzle schema in Story 1.2 alongside the table definition (§6.9).
+
+**Closes** PRD §8 question 5 and §17's "attachment scanning vendor" decision. Neither was answerable as posed — both asked *which vendor*, and the answer is *none, and here is what we do instead*.
+
+---

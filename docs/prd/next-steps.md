@@ -19,3 +19,8 @@ Delivered against all four asks. Because it was written *after* the architecture
 
 ---
 
+## Related
+
+- [[Email Engine Architecture]] — the technical design serving this PRD
+- [[BMAD Method]] — agent roles, sharding, story lifecycle
+- [[Projects MOC]] · [[Home]]

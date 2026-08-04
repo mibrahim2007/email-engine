@@ -85,4 +85,3 @@ One error taxonomy, thrown everywhere, translated at the boundary:
 Workflows retry only `RateLimitError` and `ProviderError`. Everything else fails the step immediately and surfaces in the conversation timeline as a system event the user can see — silent AI failures are worse than visible ones.
 
 ---
-

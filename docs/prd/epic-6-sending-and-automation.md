@@ -61,4 +61,3 @@
 5. A provider outage queues sends rather than dropping or erroring them.
 
 ---
-

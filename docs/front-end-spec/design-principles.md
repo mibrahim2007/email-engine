@@ -12,4 +12,3 @@ Five rules, each falsifiable. A design that violates one is wrong even if it loo
 5. **Colour is never the only carrier.** Every state encoded in colour also carries a numeral, a word, or a shape (§4.2, §11).
 
 ---
-

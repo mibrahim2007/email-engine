@@ -21,4 +21,3 @@ NFR24 covers all authenticated screens. Radix via shadcn/ui handles primitives; 
 Focus order in the conversation: thread → draft body → send (PRD §3.4).
 
 ---
-

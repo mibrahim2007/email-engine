@@ -17,4 +17,3 @@ The mobile decision is a real one: a cramped composer produces bad replies sent 
 Touch targets ≥ 44px (PRD §3.4). Citation markers get an expanded hit area without visual change.
 
 ---
-
