@@ -34,7 +34,9 @@ Chunk: `id`, `tenant_id`, `source_id`, `content`, `token_count`, `embedding vect
 `id`, `tenant_id`, `conversation_id`, `body_text`, `body_html`, `confidence` (0–1), `citations` (jsonb[]), `model`, `tool_calls` (jsonb), `state` ∈ `proposed | approved | rejected | edited | auto_sent`, `reviewed_by`, `reviewed_at`
 
 ### OutboundMessage
-`id`, `tenant_id`, `conversation_id`, `draft_id`, `state` ∈ `pending | claimed | sent | failed | dead`, `attempt_count`, `last_error`, `provider_message_id`, `scheduled_for`, `sent_at`
+`id`, `tenant_id`, `conversation_id`, `draft_id`, `state` ∈ `pending | claimed | sent | failed | dead | cancelled`, `attempt_count`, `last_error`, `provider_message_id`, `scheduled_for`, `sent_at`
+
+`cancelled` supports send-undo (§9.5 delta 3, shipped in `0003`). Sends are enqueued with `scheduled_for = now() + <undo window>` so a cancel never races the §8.2 drain.
 
 ### AuditEvent
 `id`, `tenant_id`, `actor_type` ∈ `user | system | agent`, `actor_id`, `action`, `entity_type`, `entity_id`, `metadata` (jsonb), `ip`, `created_at` — append-only, no update or delete grant.

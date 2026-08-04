@@ -35,9 +35,12 @@ CREATE POLICY tenant_isolation ON conversations
 ### 6.2 Core DDL
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- Corrected 2026-08-04. `pgcrypto` was listed and is obsolete —
+-- gen_random_uuid() has been core since PostgreSQL 13. `citext` was missing
+-- although the columns below use the type.
 CREATE EXTENSION IF NOT EXISTS "vector";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "citext";
 
 CREATE TABLE tenants (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,6 +50,10 @@ CREATE TABLE tenants (
   plan          text NOT NULL DEFAULT 'trial',
   status        text NOT NULL DEFAULT 'active',
   settings      jsonb NOT NULL DEFAULT '{}'::jsonb,
+  -- §6.8b and §6.8d. The single-value CHECK is deliberate: it states the
+  -- region actually offered rather than one aspired to.
+  region        text NOT NULL DEFAULT 'us-east'
+                  CHECK (region IN ('us-east')),
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
@@ -125,7 +132,9 @@ CREATE TABLE outbound_messages (
   tenant_id           uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   conversation_id     uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   draft_id            uuid REFERENCES drafts(id) ON DELETE SET NULL,
-  state               text NOT NULL DEFAULT 'pending',
+  state               text NOT NULL DEFAULT 'pending'
+                        CHECK (state IN ('pending','claimed','sent',
+                                         'failed','dead','cancelled')),
   attempt_count       smallint NOT NULL DEFAULT 0,
   last_error          text,
   provider_message_id text,
@@ -226,9 +235,9 @@ Two notes for whoever provisions the real environment:
 - **Check `pg_available_extensions` before trusting §6.2.** On a Neon instance pgvector is available and none of the above applies; reverting is `ALTER TABLE kb_chunks ALTER COLUMN embedding TYPE vector(1536)` plus recreating the two indexes.
 - **§6.1 names the application role `app_user`, which is too generic to be safe.** On a shared cluster that name is likely already taken by another application, and roles are cluster-wide while tables are not — an `IF NOT EXISTS` guard will silently attach your grants to a stranger's login role. Use a database-specific name (`email_engine_app`) and assert the role has neither `BYPASSRLS` nor `SUPERUSER` before granting.
 
-### 6.7 Pending schema changes — from the front-end spec rulings
+### 6.7 Schema changes from the front-end spec rulings — applied
 
-Deltas 3 and 4 of §9.5 change the schema. Both belong in a single `migrations/0003_timeline_and_cancel.sql`, **not yet written or applied**.
+Deltas 3 and 4 of §9.5 changed the schema. Both shipped as `migrations/0003_timeline_and_cancel.sql`, **written and applied on 2026-08-03** — to the scratch instance and, on every pull request, to a container-built schema in CI. *(This section said "not yet written or applied" until 2026-08-04; the DDL below is the record of what `0003` contains.)*
 
 **1. `outbound_messages` gains a `cancelled` state** (§9.5 delta 3):
 
@@ -270,6 +279,16 @@ The index leads with `tenant_id` per §6.3's rule, and `tests/rls_policy_coverag
 
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 
+
+> **§6.8 is a cluster of four database rulings** made after the section numbering was fixed, kept at lettered anchors because the PRD, the PO validation, and Story 1.2 all cite them:
+>
+> | | | |
+> |---|---|---|
+> | **§6.8** | Which database is the target | PO finding F1 |
+> | **§6.8b** | Data region — a column, not a `settings` key | PO finding F6 |
+> | **§6.8c** | `0004` is unnecessary; Drizzle defines the Neon schema | follows from F1 |
+> | **§6.8d** | Data residency — one region, and the constraint that keeps it honest | PRD §8 Q2 |
+
 [PO validation](./docs/po-validation-2026-08-03.md) F1: Epic 1 Story 1.2 provisions **Neon** and enables three extensions; the schema is applied to a **self-hosted PostgreSQL 17** where `pg_available_extensions` returns only `plpgsql`.
 
 **Ruling: Neon is the target. The self-hosted instance is reclassified as a scratch environment and will never hold tenant data.**
@@ -291,13 +310,29 @@ Four reasons, in the order they bind:
 | | |
 |---|---|
 | ~~`migrations/0004_restore_extensions.sql`~~ | **Superseded 2026-08-04 — not needed. See §6.8c.** Neon starts empty, so there is nothing to revert |
-| `0001`–`0003` | **Unchanged and immutable.** A migration log is append-only; rewriting it to look tidier is the habit that produces migrations which no longer describe how production got here. `0004` reverts the substitutions in the open |
+| `0001`–`0003` | **Unchanged and immutable.** A migration log is append-only; rewriting it to look tidier is the habit that produces migrations which no longer describe how production got here. *(This row originally said `0004` would revert the substitutions — see §6.8c, which retired that migration. Nothing reverts them, because Neon never receives them.)* |
 | §6.6 | Stands as the record of why `0001` looks the way it does. Not deleted |
 | Epic 1 Story 1.2 | Unblocked. AC2 corrected — `pgcrypto` is obsolete (`gen_random_uuid()` is core since PostgreSQL 13), and `citext` was missing |
 | PO finding F4 | Unblocked, and the answer improves: `tsvector` + GIN on `messages` for full-text search — core, so it was always the right call — **plus** `pg_trgm` returning to `contacts.name` for the fuzzy match §6.3 originally specified |
 | The self-hosted instance | Scratch only. Useful for exactly what it has been used for: proving SQL applies and policies hold. **No tenant data, ever** |
 
 **Consequently closed:** the `pgvector` + `postgresql17-contrib` shell-access item, and the `email_engine_app` password item. Neither is a blocker any more — Neon ships `pgvector`, and Neon manages the credential. Both were open for two days and are dissolved rather than solved.
+
+### 6.8b Ruling on PO finding F6 — data region (2026-08-04)
+
+NFR22: "Data region shall be a tenant-level attribute, even if only one region is offered at launch." `tenants` has no such column, and Epic 8's AC repeats the requirement.
+
+**Ruling: a real column, not a `settings` key.**
+
+```sql
+region text NOT NULL DEFAULT 'us-east'
+```
+
+`settings` jsonb was the tempting alternative and is wrong here. Everything else in `settings` — persona, tone, auto-send threshold, business hours — is tenant *preference* that only the application reads. Region is different in kind: it determines **where rows may physically live**, it will eventually constrain connection routing, and a compliance answer that depends on a jsonb key nobody can constrain or index is not an answer. A `CHECK` on a column can enumerate the regions actually offered; a jsonb key cannot.
+
+The default means every existing and future tenant has a truthful region from day one, so Epic 8 reports a fact rather than backfilling a guess.
+
+**Lands in the Drizzle schema in Story 1.2** alongside the `tenants` definition — no hand-written migration, since Neon has no schema yet (§6.9).
 
 ### 6.8c `0004` is unnecessary — Drizzle defines the Neon schema (2026-08-04)
 
@@ -317,22 +352,6 @@ Four reasons, in the order they bind:
 The two paths are deliberate: `db.yml` proves the design is portable, Story 1.3 AC5 proves the deployed schema is correct. Neither substitutes for the other.
 
 **Consequence:** the §6.6 substitution table becomes purely historical the moment Neon exists. It stays in the document because it explains why `0001` looks the way it does, and because "check `pg_available_extensions` before designing against an extension" is the lesson that produced §6.8.
-
-### 6.8b Ruling on PO finding F6 — data region (2026-08-04)
-
-NFR22: "Data region shall be a tenant-level attribute, even if only one region is offered at launch." `tenants` has no such column, and Epic 8's AC repeats the requirement.
-
-**Ruling: a real column, not a `settings` key.**
-
-```sql
-region text NOT NULL DEFAULT 'us-east'
-```
-
-`settings` jsonb was the tempting alternative and is wrong here. Everything else in `settings` — persona, tone, auto-send threshold, business hours — is tenant *preference* that only the application reads. Region is different in kind: it determines **where rows may physically live**, it will eventually constrain connection routing, and a compliance answer that depends on a jsonb key nobody can constrain or index is not an answer. A `CHECK` on a column can enumerate the regions actually offered; a jsonb key cannot.
-
-The default means every existing and future tenant has a truthful region from day one, so Epic 8 reports a fact rather than backfilling a guess.
-
-**Lands in the Drizzle schema in Story 1.2** alongside the `tenants` definition — no hand-written migration, since Neon has no schema yet (§6.9).
 
 ### 6.8d Ruling on PRD §8 Q2 — data residency (2026-08-04)
 
@@ -392,8 +411,8 @@ The partial index is the one query that matters — an unread badge on every pag
 | | |
 |---|---|
 | `migrations/0001`–`0003` | Applied, immutable, the pre-Drizzle history |
-| `migrations/0004_restore_extensions.sql` | **The last hand-written one.** `CREATE EXTENSION` is not expressible in a Drizzle schema and belongs in raw SQL regardless |
-| Everything after — `notifications`, the F4 search indexes, the F6 region column | **Drizzle-generated**, in `packages/db/migrations` |
+| ~~`migrations/0004_restore_extensions.sql`~~ | **Never written — retired by §6.8c.** Neon starts empty, so there is no substitution to revert. `0003` is therefore the last hand-written migration |
+| Everything from Story 1.2 onward — the three core tables, `notifications`, the F4 search indexes, the F6 region column | **Drizzle-generated**, in `packages/db/migrations`. Extensions are enabled by Story 1.2 AC2 |
 
 Both folders coexist permanently. `migrations/` is history and extensions; `packages/db/migrations` is the live schema. Story 1.2 should make the baseline explicit so Drizzle does not try to recreate sixteen tables that already exist.
 

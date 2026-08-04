@@ -40,7 +40,7 @@ The plan is unusually complete: epics are correctly sequenced, acceptance criter
 
 ### F1 — Epic 1 Story 1.2 describes a database that is not the one that exists ✅ RESOLVED 2026-08-03
 
-> **Ruled: Neon is the target** — [Architecture §6.8](../Email%20Engine%20Architecture.md). NFR25 forbids self-managed infrastructure, and the two-day `pgvector` blocker is that requirement being violated in practice. The self-hosted instance is reclassified as scratch and will never hold tenant data. Story 1.2 is unblocked with AC2 corrected; `0004_restore_extensions.sql` reverts the §6.6 substitutions once a Neon instance exists. **F4 is unblocked as a consequence, and two long-standing infrastructure items are dissolved.**
+> **Ruled: Neon is the target** — [Architecture §6.8](../Email%20Engine%20Architecture.md). NFR25 forbids self-managed infrastructure, and the two-day `pgvector` blocker is that requirement being violated in practice. The self-hosted instance is reclassified as scratch and will never hold tenant data. Story 1.2 is unblocked with AC2 corrected. **F4 is unblocked as a consequence, and two long-standing infrastructure items are dissolved.** *(This originally called for `0004_restore_extensions.sql` to revert the §6.6 substitutions. §6.8c retired that migration on 2026-08-04 — Neon starts empty, so the Drizzle schema defines the intended types directly and there is nothing to revert.)*
 >
 > *Original finding below, kept as the record.*
 

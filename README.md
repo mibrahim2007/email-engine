@@ -38,7 +38,7 @@ Architecture §14.1 makes these a merge blocker, and [`.github/workflows/db.yml`
 > [!NOTE]
 > **The migrations carry three substitutions, and they are on their way out.** They were written against an instance with no extensions available, so `vector(1536)` became `real[]`, `citext` became `text` with `lower()` unique indexes, and the `pg_trgm` index became a plain btree — which leaves semantic retrieval non-functional. Each substitution is documented in the header of `0001_init.sql`.
 >
-> Architecture §6.8 has since ruled that **Neon is the target database**, where all three extensions are available. `0004_restore_extensions.sql` reverts every substitution and is written once a Neon instance exists. `0001`–`0003` stay as they are: a migration log is append-only, and `0004` does the reverting in the open.
+> Architecture §6.8 has since ruled that **Neon is the target database**, where all three extensions are available — and §6.8c then retired the migration that was going to revert them. Neon starts empty, so the Drizzle schema simply defines the intended types from the first statement; there is no wrong intermediate state to correct. `0001`–`0003` are never applied to Neon and stay as the scratch-instance record, still exercised by `db.yml` against a throwaway container as a portability regression test.
 
 ## Stack
 
