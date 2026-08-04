@@ -513,6 +513,11 @@ LIMIT 8;
 
 RLS silently scopes all three scans to the current tenant — there is no `tenant_id` in this query by design.
 
+> [!note] A reranker is worth measuring against this (noted 2026-08-04)
+> The AI Gateway hosts `reranking` models alongside language and embedding ones — `getAvailableModels()` filters on `modelType`. A cross-encoder reranking the candidate set is a different primitive from RRF, which only merges two rank orders and never re-reads the query against the text.
+>
+> **Not a decision.** RRF is the right starting point: it is free, deterministic, and has no extra latency or token cost. But PRD §8 Q7 has to set a recall@8 bar before Epic 5 can start, and that measurement is the natural moment to try a reranker against the same labelled set. If RRF clears the bar, this stays a footnote. See [[Vercel AI Gateway]].
+
 ### 6.5 Migrations
 
 Drizzle generates the table DDL; RLS policies and index DDL live in hand-written `.sql` files under `packages/db/migrations/policies/` and run after each generated migration. CI fails if any table with a `tenant_id` column lacks an enabled, forced policy — that check is a test, not a convention (§14).
@@ -1082,9 +1087,16 @@ email-engine/
 }
 ```
 
-**Environment variables:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `AI_GATEWAY_API_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `ENCRYPTION_KEY`, `RESEND_API_KEY`, `INBOUND_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SENTRY_DSN`.
+**Environment variables:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `ENCRYPTION_KEY`, `RESEND_API_KEY`, `INBOUND_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SENTRY_DSN`.
 
-No provider AI keys — model access is entirely through the Gateway credential.
+No provider AI keys — model access is entirely through the Gateway.
+
+> [!important] AI Gateway auth: OIDC on Vercel, not a static key (amended 2026-08-04)
+> `AI_GATEWAY_API_KEY` was previously listed above and has been **removed from the deployment set**. On Vercel, `VERCEL_OIDC_TOKEN` is provisioned automatically with no secret to store, rotate, or leak.
+>
+> The decisive reason is not hygiene, it is offboarding: **Vercel deactivates an API key when the team member who created it leaves.** A key is bound to a person; a production service whose entire value proposition is that mail does not silently stop must not be. See [[Vercel AI Gateway]].
+>
+> The AI SDK resolves `AI_GATEWAY_API_KEY || VERCEL_OIDC_TOKEN`, so **setting the variable opts out of OIDC** — it must stay unset in Preview and Production. Keep it for CI and any non-Vercel environment, where OIDC is unavailable.
 
 ---
 

@@ -196,6 +196,11 @@ LIMIT 8;
 
 RLS silently scopes all three scans to the current tenant — there is no `tenant_id` in this query by design.
 
+> [!note] A reranker is worth measuring against this (noted 2026-08-04)
+> The AI Gateway hosts `reranking` models alongside language and embedding ones — `getAvailableModels()` filters on `modelType`. A cross-encoder reranking the candidate set is a different primitive from RRF, which only merges two rank orders and never re-reads the query against the text.
+>
+> **Not a decision.** RRF is the right starting point: it is free, deterministic, and has no extra latency or token cost. But PRD §8 Q7 has to set a recall@8 bar before Epic 5 can start, and that measurement is the natural moment to try a reranker against the same labelled set. If RRF clears the bar, this stays a footnote. See [[Vercel AI Gateway]].
+
 ### 6.5 Migrations
 
 Drizzle generates the table DDL; RLS policies and index DDL live in hand-written `.sql` files under `packages/db/migrations/policies/` and run after each generated migration. CI fails if any table with a `tenant_id` column lacks an enabled, forced policy — that check is a test, not a convention (§14).
