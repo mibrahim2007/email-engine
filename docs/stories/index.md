@@ -5,7 +5,7 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | Story | Title | Status |
 |---|---|---|
 | [1.1](./1.1.md) | Monorepo and deployment skeleton | **Review** — Tasks 1–5 done and verified (typecheck/lint/test/build all green). Blocked on two human prerequisites: link the Vercel project, enable branch protection |
-| 1.2 | Database, schema, and migrations | ✅ **Unblocked** — [F1 ruled](../po-validation-2026-08-03.md): Neon is the target ([Architecture §6.8](../../Email%20Engine%20Architecture.md)). AC2 corrected to `vector`, `pg_trgm`, `citext`. Ready to draft; needs a provisioned Neon instance to finish |
+| [1.2](./1.2.md) | Database, schema, and migrations | **Drafted 2026-08-04** — cannot start until a Neon instance is provisioned. Raises an AC8/AC9 scope conflict for the PO |
 | 1.3 | The tenant-scoped session, and keeping RLS once Drizzle owns the schema | ✅ **Rescoped 2026-08-04** ([F2](../po-validation-2026-08-03.md)) — ready to draft. Now covers `withTenant()`, the two lint rules, the `policies/` run-after pattern, and the real-connection isolation run. Needs a Neon instance to verify |
 | 1.4 | Authentication and organizations | Not drafted |
 | 1.5 | Roles and team management | Not drafted |
