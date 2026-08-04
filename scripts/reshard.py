@@ -100,15 +100,19 @@ def main():
     print(f"\n{total} shards written")
 
     # every shard must begin on a heading
-    bad = []
+    # A shard identifies itself by its breadcrumb. Anything else under docs/ —
+    # index.md, story files, the traceability matrix — is authored, not derived,
+    # and must not be checked as a slice (or silently overwritten by a future
+    # run). Detecting that from the file beats maintaining an exclusion list.
+    bad, checked = [], 0
     for f in sorted((ROOT/"docs").glob("*/*.md")):
-        # index.md files are authored, and docs/stories/ holds authored story
-        # files rather than shards — neither is derived from a source document.
-        if f.name == "index.md" or f.parent.name == "stories": continue
-        rest = [l for l in f.read_text(encoding="utf-8").splitlines()[2:]
-                if l.strip() and l.strip() != "---"]
+        lines = f.read_text(encoding="utf-8").splitlines()
+        if not lines or not lines[0].startswith("> **Shard of"): continue
+        checked += 1
+        rest = [l for l in lines[2:] if l.strip() and l.strip() != "---"]
         if not rest or not rest[0].startswith("#"):
             bad.append(f"{f.relative_to(ROOT)} -> {rest[0][:50] if rest else 'EMPTY'}")
-    print("heading check: " + ("ALL OK" if not bad else "FAILED\n  " + "\n  ".join(bad)))
+    print(f"heading check ({checked} shards): "
+          + ("ALL OK" if not bad else "FAILED\n  " + "\n  ".join(bad)))
 
 main()
