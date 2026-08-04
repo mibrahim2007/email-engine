@@ -5,6 +5,7 @@
 | **Built** | 2026-08-04, PO — resolving [validation finding F7](../po-validation-2026-08-03.md) |
 | **Covers** | FR1–57, NFR1–25 against 45 stories across 8 epics |
 | **Result** | Every FR has a delivering story. **Four new findings** (F8–F11), all in requirements whose *verification* is missing rather than whose delivery is |
+| **Status** | ✅ **F8–F11 all resolved 2026-08-04** — see the notes under each. The recommendation at the foot of this page was also adopted |
 
 ## Why this exists
 
@@ -32,7 +33,7 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR10 | Credentials encrypted, tokens auto-refreshed | 2.1 AC3–4, 2.2 AC2 | ✅ |
 | FR11 | Connection health displayed, admins notified | 2.1 AC5, 2.2 AC5, 1.7 AC4 | ✅ |
 | FR12 | 30-day backfill, non-blocking | 2.8 | ✅ |
-| FR13 | Ingest within 2 min (webhook 10 s) | 2.4 AC4, 2.7, 2.8 | ⚠️ **F9** |
+| FR13 | Ingest within 2 min (webhook 10 s) | 2.4 AC4, 2.7, **2.8 AC6** | ✅ F9 fixed |
 | FR14 | Each provider message processed exactly once | 2.7 | ✅ |
 | FR15 | MIME → text, safe HTML, snippet, attachments | 2.5 AC1, AC5 | ✅ |
 | FR16 | Threading by headers, subject fallback | 2.6 | ✅ |
@@ -72,28 +73,28 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR50 | Analytics over a selectable period | 8.1 | ✅ |
 | FR51 | Per-tenant usage recorded and reported | 8.2 AC1–2 | ✅ |
 | FR52 | Subscribe, upgrade, downgrade, invoices, limits | 8.2 AC3–5 | ✅ |
-| FR53 | **Append-only audit event for every state change** | 1.5 AC5, 3.4 AC5, 7.1 AC5 — all consumers | ⚠️ **F8** |
+| FR53 | Append-only audit event for every state change | **1.5 AC5 owns the write path**; 3.4 AC5, 7.1 AC5 consume it | ✅ F8 fixed |
 | FR54 | Data export and full deletion | 8.4 AC3 | ✅ |
 | FR55 | In-app notification centre | 1.7 AC1–3 | ✅ |
 | FR56 | Operational email for two conditions | 1.7 AC4–5 | ✅ |
 | FR57 | Attachment containment, true type, no false scan claim | 2.5 AC6–7 | ✅ |
 
-**57 of 57 have a delivering story.** The PM's claim holds. Two carry qualifications, below.
+**57 of 57 have a delivering story.** The PM's claim holds. The two that carried qualifications when this table was built — FR13 and FR53 — were fixed the same day; see F9 and F8.
 
 ---
 
 ## Non-functional requirements
 
-This is where the PRD's second claim — "reflected in acceptance criteria, not only stated" — does not entirely hold.
+This is where the PRD's second claim — "reflected in acceptance criteria, not only stated" — did not hold when the table was built. Five NFRs had no verifying criterion and one, NFR20, had nothing anywhere. All but NFR4 were fixed the same day; PRD §7's claim is annotated rather than silently corrected.
 
 | NFR | Requirement | Verified by | |
 |---|---|---|---|
-| NFR1 | LCP < 1.8 s, INP < 200 ms p75 | Front-End Spec §12 budgets only | ⚠️ **F11** |
-| NFR2 | Conversation detail < 300 ms p95 | 3.1 AC5 covers the **list**, not the detail | ⚠️ **F11** |
+| NFR1 | LCP < 1.8 s, INP < 200 ms p75 | Front-End Spec §12 CI budgets — **now stated in the NFR** | ✅ F11 fixed |
+| NFR2 | Conversation detail < 300 ms p95 | **3.3 AC6** (3.1 AC5 covers the list) | ✅ F11 fixed |
 | NFR3 | Inbound → draft-ready < 30 s p95 | 5.3 AC5 | ✅ |
-| NFR4 | Playground first token < 1.5 s p95 | — | ⚠️ **F11** |
+| NFR4 | Playground first token < 1.5 s p95 | — | ⚠️ open |
 | NFR5 | Retrieval < 150 ms p95 | 4.4 AC4 | ✅ |
-| NFR6 | Client JS < 200 KB gzipped | Front-End Spec §12 only | ⚠️ **F11** |
+| NFR6 | Client JS < 200 KB gzipped | Front-End Spec §12 CI budgets — **now stated in the NFR** | ✅ F11 fixed |
 | NFR7 | 500 tenants × 50 k conversations | 8.5 AC2 | ✅ |
 | NFR8 | 50 inbound messages/second | 8.5 AC1 | ✅ |
 | NFR9 | No full-table scans on tenant data | 8.5 AC2 | ✅ |
@@ -102,12 +103,12 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 | NFR12 | Webhooks signature- and timestamp-verified | 2.4 AC1–2 | ✅ |
 | NFR13 | Email HTML sanitized, strict CSP | 2.5 AC2–3, 8.4 AC1 | ✅ |
 | NFR14 | Prompt-injection corpus passes every release | 8.4 AC2, 5.6 AC5 | ✅ |
-| NFR15 | Audit events immutable to the app role | `0001` grants — no AC asserts it | ⚠️ **F8** |
+| NFR15 | Audit events immutable to the app role | **1.5 AC6** asserts it in a test, not only in a grant | ✅ F8 fixed |
 | NFR16 | TLS 1.2+, HSTS | 8.4 AC1 | ✅ |
-| NFR17 | 99.9 % monthly availability | — | ⚠️ **F11** |
+| NFR17 | 99.9 % monthly availability | **Reclassified** as an operational SLO; observed via 8.3 | ✅ F11 fixed |
 | NFR18 | No message lost to a transient failure | 2.7 AC5 | ✅ |
-| NFR19 | Model outage degrades to queued drafts | — | ⚠️ **F11** |
-| NFR20 | **Point-in-time recovery, last 7 days** | — **nothing, anywhere** | 🔴 **F10** |
+| NFR19 | Model outage degrades to queued drafts | **5.4 AC6** — a simulated Gateway failure | ✅ F11 fixed |
+| NFR20 | Point-in-time recovery, last 7 days | **1.2 AC7** — window set and a restore exercised | ✅ F10 fixed |
 | NFR21 | GDPR export/erasure within 30 days | 8.4 AC3 | ✅ |
 | NFR22 | Data region a tenant attribute | 8.4 AC5 + `region` column (F6) | ✅ |
 | NFR23 | Every error actionable; no silent AI failure | 8.3 AC5 | ✅ |
@@ -116,9 +117,13 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 
 ---
 
-## New findings
+## New findings — all resolved 2026-08-04
+
+> Each finding below is followed by what was done. **One remains open and deliberately so:** NFR4's playground first-token target has no verifying criterion, and adding one is premature until Story 5.6 exists.
 
 ### F8 — FR53 has three consumers and no builder 🟡
+
+> ✅ **Fixed:** Story 1.5 AC5 now owns the `audit()` helper explicitly and AC6 adds a test that the app role cannot `UPDATE`/`DELETE` `audit_events`, making NFR15 verified behaviour rather than a grant.
 
 Three stories write audit events as a *secondary* acceptance criterion — 1.5 AC5 (membership changes), 3.4 AC5 (status and assignment), 7.1 AC5 (key creation and revocation). **No story owns the audit write path**, so no story's definition of done covers "the helper exists, is consistent, and is used everywhere FR53 says *every state change*".
 
@@ -130,6 +135,8 @@ This is **the same shape as F3**: a cross-cutting capability assumed by several 
 
 ### F9 — FR13's latency numbers are asserted nowhere 🟡
 
+> ✅ **Fixed:** Story 2.8 AC6 measures arrival-to-visible latency end to end against both FR13 targets.
+
 FR13 requires ingest "within 2 minutes of arrival (webhook: within 10 seconds)". Story 2.4 AC4 requires the *endpoint* to respond within 2 seconds by handing off to a workflow — a different measurement. Story 2.8 builds the polling cron, and §12 schedules it every 2 minutes, which is where the number comes from.
 
 **No acceptance criterion measures arrival-to-visible latency**, so the requirement is satisfied by construction and never checked. A cron that silently starts taking 4 minutes would violate FR13 with everything green.
@@ -138,6 +145,8 @@ FR13 requires ingest "within 2 minutes of arrival (webhook: within 10 seconds)".
 
 ### F10 — NFR20 (point-in-time recovery) appears exactly once, in the NFR list 🔴
 
+> ✅ **Fixed:** Story 1.2 AC7 sets a retention window of at least 7 days and exercises a restore once, in the story that provisions the instance.
+
 Grep the entire PRD for "recovery", "backup", "restore", or "PITR" and NFR20 is the only hit. **No story, no acceptance criterion, no architecture section.** It is a data-loss requirement with no owner.
 
 It is also nearly free now: Neon provides PITR, and the retention window is a setting on the instance. But "nearly free" only helps if somebody sets it — and the instance is about to be provisioned, which is precisely the moment to decide the window.
@@ -145,6 +154,8 @@ It is also nearly free now: Neon provides PITR, and the retention window is a se
 **Fix:** an AC in Story 1.2 (which provisions Neon) setting and verifying the retention window. **Owner: Architect + SM,** before Story 1.2 is drafted — this is the cheapest it will ever be.
 
 ### F11 — Five NFRs have no verifying acceptance criterion 🟡
+
+> ✅ **Fixed:** NFR2 → Story 3.3 AC6; NFR19 → Story 5.4 AC6; NFR1 and NFR6 now say in the requirement that the front-end spec's CI budgets verify them; NFR17 reclassified as an operational SLO. NFR4 left open until Story 5.6 exists.
 
 | NFR | Gap |
 |---|---|

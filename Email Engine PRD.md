@@ -184,12 +184,12 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 
 **Performance**
 
-- **NFR1** — Dashboard LCP under 1.8s at p75; inbox interaction (INP) under 200ms at p75.
+- **NFR1** — Dashboard LCP under 1.8s at p75; inbox interaction (INP) under 200ms at p75. *Verified by the CI performance budgets in [[Email Engine Front-End Spec]] §12, not by a story acceptance criterion.*
 - **NFR2** — Conversation detail server response under 300ms at p95.
 - **NFR3** — Inbound message to draft-ready under 30s at p95.
 - **NFR4** — Chat playground first token under 1.5s at p95.
 - **NFR5** — Knowledge retrieval under 150ms at p95.
-- **NFR6** — Client JavaScript for the dashboard under 200KB gzipped.
+- **NFR6** — Client JavaScript for the dashboard under 200KB gzipped. *Verified by the CI performance budgets in [[Email Engine Front-End Spec]] §12, not by a story acceptance criterion.*
 
 **Scale**
 
@@ -209,7 +209,7 @@ The wedge is teams of 3–20 handling 200–5,000 emails/month who have document
 
 **Reliability**
 
-- **NFR17** — 99.9% monthly availability for the dashboard and ingest path.
+- **NFR17** — 99.9% monthly availability for the dashboard and ingest path. *Reclassified 2026-08-04 as an **operational SLO**, not a testable acceptance criterion: it is measured from production telemetry over a month, so no story can assert it. Story 8.3's dashboards and alerts are how it is observed.*
 - **NFR18** — No inbound message shall be lost due to a transient provider or model failure; every pipeline step shall be retryable and idempotent.
 - **NFR19** — A model provider outage shall degrade to queued drafts and human review, not to dropped mail.
 - **NFR20** — Database point-in-time recovery to any moment in the last 7 days.
@@ -331,6 +331,9 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 4. `drizzle-kit generate` produces a checked-in migration; `migrate` applies cleanly to an empty database.
 5. CI fails if the committed schema and migrations have drifted.
 6. A seed script creates two tenants with distinct users for local development.
+7. **Point-in-time recovery is enabled with a retention window of at least 7 days, and a restore to an arbitrary point is exercised once and documented** (NFR20). *(Added 2026-08-04 per traceability finding F10 — NFR20 had no owning story anywhere. It is a setting on the instance this story provisions, so this is the cheapest moment it will ever have.)*
+8. The schema carries the two corrections ruled after the architecture was written: `tenants.region` (Architecture §6.8b) and `attachments.scan_status` defaulting to `not_scanned` (§13.3).
+9. The Drizzle schema defines the **intended** types — `vector(1536)`, `citext`, HNSW and trigram indexes — not the substitutions in `migrations/0001`, which were forced by an instance this story does not use (§6.8c). `migrations/0001`–`0003` are never applied to Neon.
 
 ---
 
@@ -368,7 +371,8 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 2. `requireRole()` guards every mutation; a `viewer` receives 403 on any write.
 3. Owners and admins can invite by email, remove members, and change roles from the Team settings screen.
 4. The last remaining `owner` cannot be removed or demoted.
-5. Every membership change writes an audit event.
+5. **This story owns the audit write path** — a single `audit(actor, action, entity, metadata)` helper that every later state change calls, rather than each story inventing its own insert. Membership changes are its first caller. *(Added 2026-08-04 per traceability finding F8: FR53 requires an audit event for **every** state change, and three stories consumed audit while none built it.)*
+6. A test asserts the application role cannot `UPDATE` or `DELETE` `audit_events` (NFR15), so immutability is verified behaviour and not only a grant in a migration.
 
 ---
 
@@ -490,6 +494,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 3. Backfill is throttled so it never starves live ingest, and reports progress in the UI.
 4. Backfilled messages are marked as historical and do not trigger drafting or notifications.
 5. A mailbox failing repeatedly is backed off exponentially and flagged, not polled in a tight loop.
+6. **A test measures arrival-to-visible latency end to end** and asserts FR13's targets — under 2 minutes for polled mail, under 10 seconds for webhook mail. *(Added 2026-08-04 per traceability finding F9: the 2-minute figure was satisfied by the cron schedule and measured nowhere, so a cron degrading to 4 minutes would violate FR13 with every test green.)*
 
 ---
 
@@ -529,6 +534,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 3. Sanitized HTML renders inside a sandboxed iframe with a strict CSP.
 4. Attachments are listed with type icons and download via signed, expiring URLs.
 5. The view is dynamic and never served from cache.
+6. Server response for the conversation detail is under 300ms at p95 against seeded production-scale data (NFR2). *(Added 2026-08-04 per traceability finding F11 — Story 3.1 AC5 measured the list; the detail view, which NFR2 actually names, was unmeasured.)*
 
 ---
 
@@ -673,6 +679,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 3. The escalation reason is stated in one plain sentence in the conversation timeline.
 4. Admins can configure which triggers are active and their thresholds.
 5. Escalation precision against a labeled set meets the agreed threshold.
+6. A simulated model-provider outage produces **queued drafts and human review, never dropped mail** (NFR19), verified by a test that fails the Gateway and asserts the conversation still appears with a stated reason. *(Added 2026-08-04 per traceability finding F11 — the degraded path was required and never exercised.)*
 
 ---
 
@@ -882,7 +889,7 @@ Pre-flight self-assessment by the PM:
 | Every story has testable acceptance criteria | ✅ |
 | Epics are independently deployable and correctly sequenced | ✅ |
 | No story depends on a later epic | ✅ |
-| NFRs are reflected in acceptance criteria, not only stated | ✅ |
+| NFRs are reflected in acceptance criteria, not only stated | ✅ *as of 2026-08-04* — was optimistic when written. The [traceability matrix](./docs/prd/traceability.md) found five NFRs with no verifying criterion; NFR2 and NFR19 have since gained ACs, NFR1 and NFR6 are marked as verified by the front-end spec's CI budgets, and NFR17 is reclassified as an operational SLO |
 | MVP scope boundary is explicit | ✅ |
 | Open decisions are recorded and owned | ⚠️ — see §8, and PO findings F1/F3/F5 |
 | Architecture exists and is consistent with these epics | ✅ [[Email Engine Architecture]] |

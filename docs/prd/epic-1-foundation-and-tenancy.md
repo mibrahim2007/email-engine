@@ -27,6 +27,9 @@
 4. `drizzle-kit generate` produces a checked-in migration; `migrate` applies cleanly to an empty database.
 5. CI fails if the committed schema and migrations have drifted.
 6. A seed script creates two tenants with distinct users for local development.
+7. **Point-in-time recovery is enabled with a retention window of at least 7 days, and a restore to an arbitrary point is exercised once and documented** (NFR20). *(Added 2026-08-04 per traceability finding F10 — NFR20 had no owning story anywhere. It is a setting on the instance this story provisions, so this is the cheapest moment it will ever have.)*
+8. The schema carries the two corrections ruled after the architecture was written: `tenants.region` (Architecture §6.8b) and `attachments.scan_status` defaulting to `not_scanned` (§13.3).
+9. The Drizzle schema defines the **intended** types — `vector(1536)`, `citext`, HNSW and trigram indexes — not the substitutions in `migrations/0001`, which were forced by an instance this story does not use (§6.8c). `migrations/0001`–`0003` are never applied to Neon.
 
 ---
 
@@ -64,7 +67,8 @@
 2. `requireRole()` guards every mutation; a `viewer` receives 403 on any write.
 3. Owners and admins can invite by email, remove members, and change roles from the Team settings screen.
 4. The last remaining `owner` cannot be removed or demoted.
-5. Every membership change writes an audit event.
+5. **This story owns the audit write path** — a single `audit(actor, action, entity, metadata)` helper that every later state change calls, rather than each story inventing its own insert. Membership changes are its first caller. *(Added 2026-08-04 per traceability finding F8: FR53 requires an audit event for **every** state change, and three stories consumed audit while none built it.)*
+6. A test asserts the application role cannot `UPDATE` or `DELETE` `audit_events` (NFR15), so immutability is verified behaviour and not only a grant in a migration.
 
 ---
 

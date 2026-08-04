@@ -99,12 +99,12 @@
 
 **Performance**
 
-- **NFR1** — Dashboard LCP under 1.8s at p75; inbox interaction (INP) under 200ms at p75.
+- **NFR1** — Dashboard LCP under 1.8s at p75; inbox interaction (INP) under 200ms at p75. *Verified by the CI performance budgets in [[Email Engine Front-End Spec]] §12, not by a story acceptance criterion.*
 - **NFR2** — Conversation detail server response under 300ms at p95.
 - **NFR3** — Inbound message to draft-ready under 30s at p95.
 - **NFR4** — Chat playground first token under 1.5s at p95.
 - **NFR5** — Knowledge retrieval under 150ms at p95.
-- **NFR6** — Client JavaScript for the dashboard under 200KB gzipped.
+- **NFR6** — Client JavaScript for the dashboard under 200KB gzipped. *Verified by the CI performance budgets in [[Email Engine Front-End Spec]] §12, not by a story acceptance criterion.*
 
 **Scale**
 
@@ -124,7 +124,7 @@
 
 **Reliability**
 
-- **NFR17** — 99.9% monthly availability for the dashboard and ingest path.
+- **NFR17** — 99.9% monthly availability for the dashboard and ingest path. *Reclassified 2026-08-04 as an **operational SLO**, not a testable acceptance criterion: it is measured from production telemetry over a month, so no story can assert it. Story 8.3's dashboards and alerts are how it is observed.*
 - **NFR18** — No inbound message shall be lost due to a transient provider or model failure; every pipeline step shall be retryable and idempotent.
 - **NFR19** — A model provider outage shall degrade to queued drafts and human review, not to dropped mail.
 - **NFR20** — Database point-in-time recovery to any moment in the last 7 days.

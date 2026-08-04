@@ -592,7 +592,7 @@ Four reasons, in the order they bind:
 
 | | |
 |---|---|
-| `migrations/0004_restore_extensions.sql` | **Blocked until a Neon instance exists.** Enables `vector`, `pg_trgm`, `citext`; converts `kb_chunks.embedding` to `vector(1536)`; restores the HNSW and trigram indexes; converts the `citext` columns and drops the `lower()` unique indexes standing in for them. Reverts every §6.6 substitution |
+| ~~`migrations/0004_restore_extensions.sql`~~ | **Superseded 2026-08-04 — not needed. See §6.8c.** Neon starts empty, so there is nothing to revert |
 | `0001`–`0003` | **Unchanged and immutable.** A migration log is append-only; rewriting it to look tidier is the habit that produces migrations which no longer describe how production got here. `0004` reverts the substitutions in the open |
 | §6.6 | Stands as the record of why `0001` looks the way it does. Not deleted |
 | Epic 1 Story 1.2 | Unblocked. AC2 corrected — `pgcrypto` is obsolete (`gen_random_uuid()` is core since PostgreSQL 13), and `citext` was missing |
@@ -600,6 +600,25 @@ Four reasons, in the order they bind:
 | The self-hosted instance | Scratch only. Useful for exactly what it has been used for: proving SQL applies and policies hold. **No tenant data, ever** |
 
 **Consequently closed:** the `pgvector` + `postgresql17-contrib` shell-access item, and the `email_engine_app` password item. Neither is a blocker any more — Neon ships `pgvector`, and Neon manages the credential. Both were open for two days and are dissolved rather than solved.
+
+### 6.8c `0004` is unnecessary — Drizzle defines the Neon schema (2026-08-04)
+
+§6.8 called for `0004_restore_extensions.sql` to revert the §6.6 substitutions "once a Neon instance exists". Building the traceability matrix made it obvious that migration should never be written.
+
+**Neon starts empty.** The substitutions exist because `0001` had to land on a server with no extensions. On a database where `vector`, `pg_trgm`, and `citext` are available from the first statement, the Drizzle schema simply *defines the intended types* — `vector(1536)`, `citext`, the HNSW and trigram indexes. There is no intermediate wrong state to correct, so a migration correcting it would be theatre: `0001` creating `real[]` on Neon purely so `0004` could change it back.
+
+**Ruling:**
+
+| | |
+|---|---|
+| `migrations/0001`–`0003` | **Never applied to Neon.** They are the record of the scratch-instance work and stay exactly as they are |
+| Neon's schema | Created by **Drizzle from the schema definition** in Story 1.2, with the intended types from the start. Extensions enabled per Story 1.2 AC2; RLS policy DDL in `packages/db/migrations/policies/` per §6.5 |
+| `tests/rls_isolation.sql`, `tests/rls_policy_coverage.sql` | **Keep both, and keep `db.yml` running them** against a container-built schema from `migrations/`. That job stops being a check on production and becomes a portability regression test — proof the RLS design holds on stock PostgreSQL 17 with no extensions, which is worth keeping and costs 30 seconds a PR |
+| The same suites against the real schema | Story 1.3 AC5 already requires `rls_policy_coverage.sql` to run against the **Drizzle-migrated** schema. That is the check that guards production |
+
+The two paths are deliberate: `db.yml` proves the design is portable, Story 1.3 AC5 proves the deployed schema is correct. Neither substitutes for the other.
+
+**Consequence:** the §6.6 substitution table becomes purely historical the moment Neon exists. It stays in the document because it explains why `0001` looks the way it does, and because "check `pg_available_extensions` before designing against an extension" is the lesson that produced §6.8.
 
 ### 6.8b Ruling on PO finding F6 — data region (2026-08-04)
 

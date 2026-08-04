@@ -94,5 +94,6 @@
 3. Backfill is throttled so it never starves live ingest, and reports progress in the UI.
 4. Backfilled messages are marked as historical and do not trigger drafting or notifications.
 5. A mailbox failing repeatedly is backed off exponentially and flagged, not polled in a tight loop.
+6. **A test measures arrival-to-visible latency end to end** and asserts FR13's targets — under 2 minutes for polled mail, under 10 seconds for webhook mail. *(Added 2026-08-04 per traceability finding F9: the 2-minute figure was satisfied by the cron schedule and measured nowhere, so a cron degrading to 4 minutes would violate FR13 with every test green.)*
 
 ---

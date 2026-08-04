@@ -48,6 +48,7 @@
 3. The escalation reason is stated in one plain sentence in the conversation timeline.
 4. Admins can configure which triggers are active and their thresholds.
 5. Escalation precision against a labeled set meets the agreed threshold.
+6. A simulated model-provider outage produces **queued drafts and human review, never dropped mail** (NFR19), verified by a test that fails the Gateway and asserts the conversation still appears with a stated reason. *(Added 2026-08-04 per traceability finding F11 — the degraded path was required and never exercised.)*
 
 ---
 

@@ -13,7 +13,7 @@ Pre-flight self-assessment by the PM:
 | Every story has testable acceptance criteria | ✅ |
 | Epics are independently deployable and correctly sequenced | ✅ |
 | No story depends on a later epic | ✅ |
-| NFRs are reflected in acceptance criteria, not only stated | ✅ |
+| NFRs are reflected in acceptance criteria, not only stated | ✅ *as of 2026-08-04* — was optimistic when written. The [traceability matrix](./docs/prd/traceability.md) found five NFRs with no verifying criterion; NFR2 and NFR19 have since gained ACs, NFR1 and NFR6 are marked as verified by the front-end spec's CI budgets, and NFR17 is reclassified as an operational SLO |
 | MVP scope boundary is explicit | ✅ |
 | Open decisions are recorded and owned | ⚠️ — see §8, and PO findings F1/F3/F5 |
 | Architecture exists and is consistent with these epics | ✅ [[Email Engine Architecture]] |

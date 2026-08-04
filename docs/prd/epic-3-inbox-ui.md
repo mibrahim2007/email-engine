@@ -37,6 +37,7 @@
 3. Sanitized HTML renders inside a sandboxed iframe with a strict CSP.
 4. Attachments are listed with type icons and download via signed, expiring URLs.
 5. The view is dynamic and never served from cache.
+6. Server response for the conversation detail is under 300ms at p95 against seeded production-scale data (NFR2). *(Added 2026-08-04 per traceability finding F11 — Story 3.1 AC5 measured the list; the detail view, which NFR2 actually names, was unmeasured.)*
 
 ---
 
