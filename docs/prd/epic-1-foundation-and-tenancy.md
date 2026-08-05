@@ -57,6 +57,7 @@
 3. `requireTenant()` resolves the tenant from the session's `org_id` and rejects a session with no active organization.
 4. A user in two organizations can switch between them and the data shown changes accordingly.
 5. Clerk webhook signature verification rejects unsigned or stale payloads.
+6. **The webhook mirrors identity as well as organizations**: `user.created`/`user.updated` maintain a `users` row keyed by `clerk_user_id`, and `organizationMembership.created`/`updated`/`deleted` maintain the corresponding `memberships` row with its role. All idempotent. *(Added 2026-08-05 per [story boundary audit](./docs/story-boundary-audit-2026-08-05.md) SB-1: five stories described `users` as a mirror of Clerk identity and no story built the mirroring, leaving FR3's "roles are stored on membership" delivered against a table nothing populates.)*
 
 ---
 
