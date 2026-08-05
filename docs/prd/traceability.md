@@ -15,6 +15,8 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 
 **Method.** Every story's acceptance criteria were read, not skimmed for keywords. A story is listed against an FR only where an AC actually delivers it; a story that *consumes* a capability is not the same as one that *builds* it — that distinction is what F3 turned on, and it is what F8 below turns on too.
 
+> **A limitation this table has, discovered 2026-08-05.** It maps requirement → delivering story and says nothing about **preconditions**. FR3 was mapped to Story 1.5 and the mapping was correct — but nothing populated the table 1.5 stores roles on, and the matrix could not show that, because the gap was between two stories rather than between a requirement and a story. The [story boundary audit](../story-boundary-audit-2026-08-05.md) is the pass that finds it. Rows carrying a **bold precondition** below were corrected after SB-1.
+
 ---
 
 ## Functional requirements
@@ -22,8 +24,8 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR | Requirement (abbreviated) | Delivered by | |
 |---|---|---|---|
 | FR1 | Tenants map to Clerk Organizations | 1.4 | ✅ |
-| FR2 | User belongs to many tenants, switches without re-auth | 1.4 AC4 | ✅ |
-| FR3 | Four roles with distinct permissions | 1.5 AC1–2 | ✅ |
+| FR2 | User belongs to many tenants, switches without re-auth | 1.4 AC4, **1.4 AC6** | ✅ |
+| FR3 | Four roles with distinct permissions | 1.5 AC1–2, **populated by 1.4 AC6** | ✅ |
 | FR4 | Invite, remove, re-role members | 1.5 AC3 | ✅ |
 | FR5 | No cross-tenant read or write | 1.3 | ✅ |
 | FR6 | Gmail OAuth | 2.2 | ✅ |

@@ -129,8 +129,18 @@ findings:
       policy rejects packages inside a minimum-release-age window and 16.3.0 /
       8.66.0 shipped on 2026-08-03. Pinning below the cutoff was the right
       response; relaxing the policy would not have been.
-    status: OPEN
-    note: Revisit once those versions age past the window.
+    status: RESOLVED
+    resolved_at: "2026-08-05"
+    resolution: >
+      Bumped once the versions aged past the window — next 16.3.0,
+      eslint-config-next 16.3.0, typescript-eslint 8.66.0. Re-verified:
+      typecheck 6/6, lint 6/6, tests 2 passed, build clean on Next 16.3.0.
+      The install doubled as proof that 2026-08-04's hardening works: strict
+      mode stayed on, no minimumReleaseAgeExclude list was written, and the
+      packages simply resolved. The policy refused them on the 3rd and
+      accepted them on the 5th, which is the behaviour it was configured for.
+      typescript-eslint 8.66 still caps at typescript <6.1.0, so the §3 ruling
+      holding TypeScript at 5.9 is unaffected.
 
 blocking_prerequisites:
   - id: vercel-project-not-linked
