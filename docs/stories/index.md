@@ -27,7 +27,18 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [2.7](./2.7.md) | Ingest pipeline and exactly-once processing | **Draft** — `RETURNING` is what makes "without starting a workflow" true |
 | [2.8](./2.8.md) | Polling cron and backfill | **Draft** — 🔴 **backfill races live ingest**; a customer emailing during onboarding never gets a reply |
 
-**All seven Epic 1 stories are drafted, and all eight of Epic 2.** None past 1.1 is Approved — each names what it waits on. Epics 3–8 are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — Epic 3 still needs F4's migration written, though its design is settled.
+## Epic 3 — Inbox UI
+
+| Story | Title | Status |
+|---|---|---|
+| [3.1](./3.1.md) | Conversation list | **Draft** — carries FE Spec §12's rejection of a virtualiser; needs a scale fixture |
+| [3.2](./3.2.md) | Filtering and search | **Draft** — **owns PO finding F4's migration**, settled 08-04 and unowned until now |
+| [3.3](./3.3.md) | Conversation detail | **Draft** — builds the `conversation_events` timeline merge though its producers arrive in Epics 5–6 |
+| [3.4](./3.4.md) | Status, assignment, contact panel | **Draft** — AC3's rollback is the requirement, not the optimism |
+| [3.5](./3.5.md) | Manual reply | **Draft** — 🔴 **three of five ACs restate Epic 6 requirements**; Epic 3 cannot meet its own goal without the outbox |
+| [3.6](./3.6.md) | Live updates and keyboard navigation | **Draft** — `⌘Enter` must fire from inside the textarea |
+
+**Twenty-one stories drafted — all of Epics 1, 2 and 3.** None past 1.1 is Approved — each names what it waits on. Epics 4–8 are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — **F4's migration is now owned by Story 3.2.**
 
 ## Story lifecycle
 
