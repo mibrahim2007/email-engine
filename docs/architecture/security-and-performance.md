@@ -18,7 +18,7 @@
 | Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls |
 | Audit | Append-only `audit_events`; no `UPDATE`/`DELETE` grant to `app_user` |
 | Headers | CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` via `next.config.ts` |
-| Data deletion | Tenant delete cascades; blob purge job; 30-day soft-delete window |
+| Data deletion | Tenant delete cascades; blob purge job (**`/api/cron/purge-blobs`**, declared in §12 as of 2026-08-05 — it was specified here and scheduled nowhere); 30-day soft-delete window |
 | Compliance posture | GDPR export/erase endpoints, per-tenant data-region setting, DPA-ready audit trail |
 
 ### 13.2 Performance targets

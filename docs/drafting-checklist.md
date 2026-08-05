@@ -64,6 +64,21 @@ Nothing else in the process does this. The PO gate compares planning documents; 
 
 Look for: dangling references ("as in Story X" where X has no such thing), two stories amending the same file with neither owning it, and an ordering problem where a story needs a helper a later story builds.
 
+### ☐ Compare this epic's *requirements* to the earlier epic's *design*
+
+Distinct from the pass above, which compares stories within one epic. This one asks whether a model established earlier can actually carry what a later epic needs — and no pass that stays inside a single epic can see it.
+
+> **The cron/RLS conflict.** §12 declares four crons; every one runs with no tenant while needing work belonging to all of them. `mailboxes` carries `USING (tenant_id = current_tenant_id())`, so `poll-mailboxes` would enumerate **zero rows and poll nothing, silently** — every tenant's mail simply stops arriving. The tenant-scoping model came from Epic 1; the crons come from Epics 2, 4, 6 and 8.
+> **The undeclared jobs.** The same sweep found `blob purge job` specified in §13.1 and scheduled in no cron, so FR54 would have been met in the database and quietly unmet in storage.
+
+Look for: anything that runs **without a request** (crons, workflows, jobs), anything that must act **before** the scoping context exists, and anything named in one section as a capability but never given a home in another.
+
+### ☐ Ask which way a background job fails
+
+> `poll-mailboxes` enumerating nothing means no mail arrives — **loud once noticed, and reversible.** `purge-blobs` enumerating wrongly means a live tenant's attachments are **deleted** — silent and not reversible.
+
+Same mechanism, opposite blast radius. A job that deletes needs a sanity threshold and a refusal path; a job that reads needs an alert. **Deciding this per job is cheaper than discovering it per incident.**
+
 ### ☐ "Whichever ships first" is not an owner
 
 > **SB-2** — Stories 1.3 and 1.4 both needed one lint rule amended. The failure mode is quiet: the second story hits it under time pressure and the cheapest fix is to loosen the rule rather than add one permitted path.

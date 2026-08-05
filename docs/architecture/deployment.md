@@ -21,10 +21,19 @@
     { "path": "/api/cron/poll-mailboxes", "schedule": "*/2 * * * *" },
     { "path": "/api/cron/drain-outbox",   "schedule": "* * * * *" },
     { "path": "/api/cron/reindex-kb",     "schedule": "0 3 * * *" },
-    { "path": "/api/cron/rollup-usage",   "schedule": "15 * * * *" }
+    { "path": "/api/cron/rollup-usage",   "schedule": "15 * * * *" },
+    { "path": "/api/cron/purge-blobs",    "schedule": "30 4 * * *" }
   ]
 }
 ```
+
+> **`purge-blobs` was added 2026-08-05.** §13.1 has always specified *"tenant delete cascades; blob purge job; 30-day soft-delete window"* and Story 8.4 AC3 requires deletion to cascade to blobs within 30 days — but **no cron declared it**, so nothing would have run it. FR54 and NFR21 would have been satisfied in the database and quietly unmet in storage.
+>
+> **It is the most dangerous of the five and needs the opposite failure mode from the others.** `poll-mailboxes` enumerating nothing means no mail arrives — bad, loud once noticed, and reversible. **`purge-blobs` enumerating wrongly means a live tenant's attachments are deleted**, which is not reversible and which nothing downstream would flag. Its enumerator must return only tenants whose soft-delete window has *definitively* elapsed, and it should refuse to run at all if the count exceeds a sanity threshold rather than proceeding.
+>
+> Its enumerator, `tenantsDueForBlobPurge`, follows §10.2's category-two rules and is owned by Story 8.4 — making **six** crons' worth of enumerators plus the two bootstrap lookups.
+
+> **The nightly eval set is not a Vercel cron.** PRD Story 8.5 AC3 and §14 describe a nightly eval that reports regressions without blocking merges. It runs on a CI schedule, has no tenant context to establish, and touches no tenant data — **listing it here would give it a scoping problem it does not have.** Stated so nobody adds it.
 
 **Environment variables:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `ENCRYPTION_KEY`, `RESEND_API_KEY`, `INBOUND_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SENTRY_DSN`.
 

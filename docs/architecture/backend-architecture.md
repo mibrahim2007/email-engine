@@ -90,18 +90,19 @@ This is the bootstrap problem again at a different scale — and it means the es
 | Category | Shape | Members |
 |---|---|---|
 | **Bootstrap lookup** | External identifier → **one** tenant, before a session exists | `tenantByClerkOrg`, `tenantByApiKeyHash` |
-| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup` |
+| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup`, `tenantsDueForBlobPurge` |
 
 **The discipline that makes category two safe is what it must not return.**
 
 1. **Identifiers only, never entity data.** `mailboxesDueForPoll()` returns `(tenant_id, mailbox_id)` — **not** `credentials_encrypted`, not the address, not the cursor. An enumerator that returns rows is a cross-tenant read with a job title.
 2. **The work happens inside `withTenant()`.** The cron enumerates, then loops, then re-enters a tenant-scoped session per tenant to do anything real. **Processing on the system connection would bypass RLS for the entire pipeline** — which is precisely the failure the whole design exists to prevent, arriving through the back door of a scheduled job.
 3. **Same mechanism as the bootstrap lookup**: `SECURITY DEFINER`, pinned `search_path`, minimal return, `REVOKE FROM PUBLIC` then grant.
-4. **The surface test still applies**, now over six exports rather than two. Six enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
+4. **A destructive enumerator needs a refusal path**, not just a correct query. `tenantsDueForBlobPurge` deletes; if its window arithmetic is wrong it destroys a live tenant's attachments and nothing downstream notices. It must refuse to proceed when the returned count exceeds a sanity threshold — see §12.
+5. **The surface test still applies**, now over seven exports rather than two. Six enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
 
 > **Why the list grew and the rule did not.** "Adding a third is an architecture decision" was the right rule and it worked exactly as intended — the third arrived, it was noticed, and it turned out to be four. **A cap that gets renegotiated when the reason is good is doing its job; a cap that gets quietly edged past is not.** What matters is that `system.ts` stays enumerable and every entry says why it cannot be tenant-scoped.
 
-**Ownership:** Story 1.4 still builds the module and the two bootstrap functions. Each enumerator belongs to the story that introduces its cron — `mailboxesDueForPoll` to Story 2.8, `outboundDue` to 6.1, `kbSourcesDueForReindex` to 4.3, `tenantsDueForUsageRollup` to 8.2 — and each must extend the surface test rather than loosen it.
+**Ownership:** Story 1.4 still builds the module and the two bootstrap functions. Each enumerator belongs to the story that introduces its cron — `mailboxesDueForPoll` to Story 2.8, `outboundDue` to 6.1, `kbSourcesDueForReindex` to 4.3, `tenantsDueForUsageRollup` to 8.2, `tenantsDueForBlobPurge` to 8.4 — and each must extend the surface test rather than loosen it.
 
 ### 10.3 Auth flow
 
