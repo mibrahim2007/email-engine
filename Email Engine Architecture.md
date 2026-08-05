@@ -1022,6 +1022,44 @@ export async function withTenant<T>(
 
 **Every** repository function takes a `tx` from `withTenant`. There is no exported raw `db` outside `server/db`. An ESLint rule enforces it (§15).
 
+#### The one query that cannot (ruled 2026-08-04)
+
+"Every" was not quite true, and the exception is load-bearing. §10.3's `requireTenant()` calls `getTenantByClerkOrg(orgId)` **before a tenant is known** — that is the query which *determines* the tenant, so it cannot run inside a session scoped to one. The same applies to the API-key path, which resolves a tenant from a hashed key.
+
+**And it is worse than a naming problem.** `tenants` carries `USING (id = current_tenant_id())`. With no tenant set, `current_tenant_id()` returns NULL, `id = NULL` is NULL, and the policy denies. **The bootstrap lookup is blocked by the policy it exists to precede** — run it as `email_engine_app` with no tenant and it returns zero rows, so every login fails closed.
+
+**Ruling: a `SECURITY DEFINER` function, not a second role and not an unpoliced table.**
+
+```sql
+CREATE FUNCTION tenant_by_clerk_org(p_clerk_org_id text)
+RETURNS TABLE (id uuid, status text)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+  SELECT t.id, t.status FROM tenants t WHERE t.clerk_org_id = p_clerk_org_id
+$$;
+
+REVOKE ALL ON FUNCTION tenant_by_clerk_org(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION tenant_by_clerk_org(text) TO email_engine_app;
+```
+
+Why this shape:
+
+- **`SECURITY DEFINER` runs as the function owner**, so the policy does not block it — while the *table* stays forced for every other access path. The exception is one function wide, not one role wide.
+- **It returns two columns, never the row.** An escape hatch that returned `tenants.*` would leak `settings` and `plan` for an arbitrary `clerk_org_id`. The caller needs an id and a status; it gets an id and a status.
+- **`SET search_path` is mandatory, not stylistic.** A `SECURITY DEFINER` function without a pinned search path is the standard PostgreSQL privilege-escalation footgun.
+- **Granting a second role `BYPASSRLS` was the alternative and is much worse** — it creates a credential that can read every tenant's mail, to solve a problem that needs one lookup.
+
+**The escape hatch must be enumerable.** Give it a home and a guard:
+
+| | |
+|---|---|
+| `server/db/system.ts` | The only module allowed to call these. Every export is a system query with a comment saying why it cannot be tenant-scoped |
+| Permitted list | `tenantByClerkOrg`, `tenantByApiKeyHash`. **Two.** Adding a third is an architecture decision, not a refactor |
+| Test | Asserts `system.ts`'s exported surface matches that list exactly, so it cannot grow quietly — the same reasoning as `allowBuilds` and the `region` CHECK: **constrain the exception, do not merely document it** |
+
+Story 1.4 owns the function and the module; Story 1.3's ESLint rule must permit `system.ts` alongside `withTenant`.
+
 ### 10.3 Auth flow
 
 Clerk middleware guards `(app)` and `/api/v1` differently:
