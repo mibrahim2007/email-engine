@@ -10,9 +10,9 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [1.4](./1.4.md) | Authentication and organizations | **Draft, not Approved** — drafted three ahead on 2026-08-05. Surfaced the bootstrap-lookup problem and its ruling (Architecture §10.2). Depends on 1.2 and 1.3 |
 | [1.5](./1.5.md) | Roles and team management | **Draft, not Approved** — 2026-08-05. Owns the audit write path (F8). Identifies AC4's last-owner rule as a **race**, not a validation check |
 | [1.6](./1.6.md) | Application shell | **Draft, not Approved** — 2026-08-05. Flags AC5 as presentation needing a separate route guard; adds axe-core to CI |
-| 1.7 | Notification foundation | Not drafted — **added 2026-08-03** resolving [F3](../po-validation-2026-08-03.md). Must land before Epic 2 Story 2.2, its first consumer. Depends on 1.5 (roles) and 1.6 (shell) |
+| [1.7](./1.7.md) | Notification foundation | **Draft, not Approved** — 2026-08-05. Resolves [F3](../po-validation-2026-08-03.md). Puts the in-app write inside the transaction and the email after commit |
 
-Later epics are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — Epic 3 still needs F4's migration written, though its design is settled.
+**All seven Epic 1 stories are drafted.** None past 1.1 is Approved — each names what it waits on. Later epics are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — Epic 3 still needs F4's migration written, though its design is settled.
 
 ## Story lifecycle
 
