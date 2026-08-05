@@ -15,6 +15,8 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 
 **Method.** Every story's acceptance criteria were read, not skimmed for keywords. A story is listed against an FR only where an AC actually delivers it; a story that *consumes* a capability is not the same as one that *builds* it — that distinction is what F3 turned on, and it is what F8 below turns on too.
 
+> **A correction, 2026-08-05.** F11 marked NFR1 and NFR6 resolved on the grounds that Front-End Spec §12 covers them. **§12 states the budgets; nothing measured them** — `ci.yml` ran typecheck, lint, test and build, and no story owned a bundle-size check. That is the same "described by several, built by none" defect as F3, F8, SB-1 and SB-4 — **introduced while resolving a finding of exactly that class**, because pointing at a document reads like assigning an owner. Both now name Story 1.6 AC6. The rule this earns: **a requirement is only covered when a *story* covers it. A section number is a citation, not an owner.**
+
 > **A limitation this table has, discovered 2026-08-05.** It maps requirement → delivering story and says nothing about **preconditions**. FR3 was mapped to Story 1.5 and the mapping was correct — but nothing populated the table 1.5 stores roles on, and the matrix could not show that, because the gap was between two stories rather than between a requirement and a story. The [story boundary audit](../story-boundary-audit-2026-08-05.md) is the pass that finds it. Rows carrying a **bold precondition** below were corrected after SB-1.
 
 ---
@@ -91,12 +93,12 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 
 | NFR | Requirement | Verified by | |
 |---|---|---|---|
-| NFR1 | LCP < 1.8 s, INP < 200 ms p75 | Front-End Spec §12 CI budgets — **now stated in the NFR** | ✅ F11 fixed |
+| NFR1 | LCP < 1.8 s, INP < 200 ms p75 | **1.6 AC6** gates a Lighthouse lab proxy; the p75 field figure is observed via Speed Insights | ✅ corrected 08-05 |
 | NFR2 | Conversation detail < 300 ms p95 | **3.3 AC6** (3.1 AC5 covers the list) | ✅ F11 fixed |
 | NFR3 | Inbound → draft-ready < 30 s p95 | 5.3 AC5 | ✅ |
 | NFR4 | Playground first token < 1.5 s p95 | — | ⚠️ open |
 | NFR5 | Retrieval < 150 ms p95 | 4.4 AC4 | ✅ |
-| NFR6 | Client JS < 200 KB gzipped | Front-End Spec §12 CI budgets — **now stated in the NFR** | ✅ F11 fixed |
+| NFR6 | Client JS < 200 KB gzipped | **1.6 AC6** — CI fails the build above the ceiling | ✅ corrected 08-05 |
 | NFR7 | 500 tenants × 50 k conversations | 8.5 AC2 | ✅ |
 | NFR8 | 50 inbound messages/second | 8.5 AC1 | ✅ |
 | NFR9 | No full-table scans on tenant data | 8.5 AC2 | ✅ |

@@ -18,6 +18,8 @@ Describing something repeatedly creates a strong feeling that it exists.
 
 The question that catches it: **whose definition of done covers this?**
 
+**And the answer must be a story, never a document.** NFR1 and NFR6 were closed by citing Front-End Spec §12, which specifies the budgets and measures nothing — so the requirement read as covered while `ci.yml` ran no size check at all. **A section number is a citation, not an owner**, and this one was introduced while resolving a finding of precisely this shape.
+
 ### ☐ Read every acceptance criterion for a race
 
 An AC phrased as a rule is often a concurrency requirement wearing a validation costume.
@@ -100,7 +102,7 @@ Absence is the claim that goes stale fastest, because products only add.
 
 ### ☐ Constrain the exception; do not merely document it
 
-> `allowBuilds` naming three postinstall scripts · the `region` single-value `CHECK` · `minimumReleaseAgeStrict` · `system.ts` with exactly two permitted exports **and a test asserting that surface**.
+> `allowBuilds` naming three postinstall scripts · the `region` single-value `CHECK` · `minimumReleaseAgeStrict` · `system.ts` with an enumerable export list **and a test asserting that surface** · `purge-blobs` refusing to run above a sanity threshold.
 
 A documented exception grows. A tested one has to be argued for.
 
