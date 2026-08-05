@@ -68,6 +68,8 @@ CREATE TABLE mailboxes (
   sync_state            text NOT NULL DEFAULT 'idle',
   last_synced_at        timestamptz,
   is_active             boolean NOT NULL DEFAULT true,
+  -- Ruled 2026-08-05. Distinct from created_at on purpose: see §6.8e.
+  connected_at          timestamptz NOT NULL DEFAULT now(),
   created_at            timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, address)
 );
@@ -378,6 +380,20 @@ Everything else follows cheaply because the column exists: tenants carry a truth
 **What would force the decision earlier:** a customer with a contractual EU-residency requirement. That is a sales event, not a technical one — observable, and it arrives with a date attached. Revisit then, not on a schedule.
 
 **Epic 8's AC5** — *"data region is a tenant attribute, and the audit trail satisfies a standard DPA review"* — is satisfiable as written under this ruling. The honest DPA answer is "one region, recorded per tenant, enforced by constraint", which reviews better than a routing layer nobody has exercised.
+
+### 6.8e Ruling — `mailboxes.connected_at` is its own column (2026-08-05)
+
+Story 2.1 asked whether the backfill boundary can reuse `created_at`. **It cannot, and the difference only shows up in the case that matters.**
+
+Story 2.8 bounds backfill to `[connected_at − 30 days, connected_at)` so it cannot overlap live ingest. If that boundary reads `created_at`:
+
+> A tenant connects a mailbox, revokes it a month later, then reconnects. `created_at` still points at the original connection, so the backfill re-fetches a month of mail the product has **already processed and replied to** — inserting it as historical, or worse, re-drafting it.
+
+`connected_at` moves on reconnect; `created_at` records when the row appeared. They are the same value exactly once, which is why one can masquerade as the other right up until the first reconnection.
+
+**Rule:** `connect()` sets `connected_at = now()` on every successful connection, including reconnection of an existing row. `created_at` is never written twice.
+
+> **The general form is worth keeping.** A timestamp that means "when this row was created" and a timestamp that means "when this thing last started" coincide until the thing restarts — and reusing one for the other is a bug that cannot be found by testing the happy path, only by asking what happens the second time.
 
 ### 6.9 `notifications`, and where migrations live from here
 
