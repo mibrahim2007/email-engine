@@ -1076,6 +1076,37 @@ Why this shape:
 
 Story 1.4 owns the function and the module; Story 1.3's ESLint rule must permit `system.ts` alongside `withTenant`.
 
+#### Every cron needs the same exception, and the two-function list did not survive contact (ruled 2026-08-05)
+
+Found checking Epic 2's stories against Epic 1's design. §12 declares four crons:
+
+```json
+{ "path": "/api/cron/poll-mailboxes", "schedule": "*/2 * * * *" },
+{ "path": "/api/cron/drain-outbox",   "schedule": "* * * * *" },
+{ "path": "/api/cron/reindex-kb",     "schedule": "0 3 * * *" },
+{ "path": "/api/cron/rollup-usage",   "schedule": "15 * * * *" }
+```
+
+**Every one of them runs with no tenant and must find work belonging to all of them.** `mailboxes` carries `USING (tenant_id = current_tenant_id())`; with no tenant set that predicate is NULL and the policy denies. So `poll-mailboxes` enumerates **zero mailboxes**, polls nothing, and every tenant's mail silently stops arriving. The same is true of the other three.
+
+This is the bootstrap problem again at a different scale — and it means the escape hatch was never a list of two functions. **It is two categories:**
+
+| Category | Shape | Members |
+|---|---|---|
+| **Bootstrap lookup** | External identifier → **one** tenant, before a session exists | `tenantByClerkOrg`, `tenantByApiKeyHash` |
+| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup` |
+
+**The discipline that makes category two safe is what it must not return.**
+
+1. **Identifiers only, never entity data.** `mailboxesDueForPoll()` returns `(tenant_id, mailbox_id)` — **not** `credentials_encrypted`, not the address, not the cursor. An enumerator that returns rows is a cross-tenant read with a job title.
+2. **The work happens inside `withTenant()`.** The cron enumerates, then loops, then re-enters a tenant-scoped session per tenant to do anything real. **Processing on the system connection would bypass RLS for the entire pipeline** — which is precisely the failure the whole design exists to prevent, arriving through the back door of a scheduled job.
+3. **Same mechanism as the bootstrap lookup**: `SECURITY DEFINER`, pinned `search_path`, minimal return, `REVOKE FROM PUBLIC` then grant.
+4. **The surface test still applies**, now over six exports rather than two. Six enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
+
+> **Why the list grew and the rule did not.** "Adding a third is an architecture decision" was the right rule and it worked exactly as intended — the third arrived, it was noticed, and it turned out to be four. **A cap that gets renegotiated when the reason is good is doing its job; a cap that gets quietly edged past is not.** What matters is that `system.ts` stays enumerable and every entry says why it cannot be tenant-scoped.
+
+**Ownership:** Story 1.4 still builds the module and the two bootstrap functions. Each enumerator belongs to the story that introduces its cron — `mailboxesDueForPoll` to Story 2.8, `outboundDue` to 6.1, `kbSourcesDueForReindex` to 4.3, `tenantsDueForUsageRollup` to 8.2 — and each must extend the surface test rather than loosen it.
+
 ### 10.3 Auth flow
 
 Clerk middleware guards `(app)` and `/api/v1` differently:
