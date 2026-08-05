@@ -12,7 +12,18 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [1.6](./1.6.md) | Application shell | **Draft, not Approved** — 2026-08-05. Flags AC5 as presentation needing a separate route guard; adds axe-core to CI |
 | [1.7](./1.7.md) | Notification foundation | **Draft, not Approved** — 2026-08-05. Resolves [F3](../po-validation-2026-08-03.md). Puts the in-app write inside the transaction and the email after commit |
 
-**All seven Epic 1 stories are drafted.** None past 1.1 is Approved — each names what it waits on. Later epics are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — Epic 3 still needs F4's migration written, though its design is settled.
+## Epic 2
+
+| [2.1](./2.1.md) | Mailbox model and connection framework | **Draft** — flags `ENCRYPTION_KEY` as the one secret with no reset path; owns `RawMessage` |
+| [2.2](./2.2.md) | Gmail connection | **Draft** — 🔴 raises **Google OAuth restricted-scope verification** as a project-level gate absent from the PRD |
+| [2.3](./2.3.md) | Microsoft 365 and IMAP connections | **Draft** — `UIDVALIDITY` is the IMAP analogue of an expiring history id |
+| [2.4](./2.4.md) | Inbound webhook ingest | **Draft** — verify-before-parse is the security control, not an optimisation |
+| [2.5](./2.5.md) | Parsing, sanitization, and attachments | **Draft** — sanitized-only storage is a one-way door |
+| [2.6](./2.6.md) | Thread resolution | **Draft** — a wrong merge is a data-exposure incident RLS cannot prevent |
+| [2.7](./2.7.md) | Ingest pipeline and exactly-once processing | **Draft** — `RETURNING` is what makes "without starting a workflow" true |
+| [2.8](./2.8.md) | Polling cron and backfill | **Draft** — 🔴 **backfill races live ingest**; a customer emailing during onboarding never gets a reply |
+
+**All seven Epic 1 stories are drafted, and all eight of Epic 2.** None past 1.1 is Approved — each names what it waits on. Epics 3–8 are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — Epic 3 still needs F4's migration written, though its design is settled.
 
 ## Story lifecycle
 
