@@ -2,6 +2,8 @@
 
 One story in flight at a time, per Architecture §1.2. The Dev agent starts with a clean context holding exactly one story file plus the three `devLoadAlwaysFiles` shards.
 
+## Epic 1 — Foundation and tenancy
+
 | Story | Title | Status |
 |---|---|---|
 | [1.1](./1.1.md) | Monorepo and deployment skeleton | **Review** — Tasks 1–5 done and verified (typecheck/lint/test/build all green). Blocked on two human prerequisites: link the Vercel project, enable branch protection |
@@ -12,8 +14,10 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [1.6](./1.6.md) | Application shell | **Draft, not Approved** — 2026-08-05. Flags AC5 as presentation needing a separate route guard; adds axe-core to CI |
 | [1.7](./1.7.md) | Notification foundation | **Draft, not Approved** — 2026-08-05. Resolves [F3](../po-validation-2026-08-03.md). Puts the in-app write inside the transaction and the email after commit |
 
-## Epic 2
+## Epic 2 — Mailbox connection and ingest
 
+| Story | Title | Status |
+|---|---|---|
 | [2.1](./2.1.md) | Mailbox model and connection framework | **Draft** — flags `ENCRYPTION_KEY` as the one secret with no reset path; owns `RawMessage` |
 | [2.2](./2.2.md) | Gmail connection | **Draft** — 🔴 raises **Google OAuth restricted-scope verification** as a project-level gate absent from the PRD |
 | [2.3](./2.3.md) | Microsoft 365 and IMAP connections | **Draft** — `UIDVALIDITY` is the IMAP analogue of an expiring history id |
