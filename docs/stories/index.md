@@ -22,6 +22,12 @@ SM drafts → Approved → Dev implements → Review → QA gate → PO marks Do
 
 A story file is **self-contained**: the SM embeds the relevant architecture excerpts into it so the Dev agent never has to go hunting. If the Dev agent needs to open `Email Engine Architecture.md`, the story was drafted badly.
 
+## Before drafting or reviewing
+
+Run [`docs/drafting-checklist.md`](../drafting-checklist.md). Every check in it found a real defect on this project and names the finding that earned it — it is a record of what has actually gone wrong here, not a generic quality list.
+
+The two that have paid off most often: **if more than two stories describe a thing, ask which one builds it** (F3, F8, SB-1), and **read every acceptance criterion for a race** (Story 1.5 AC4, front-end spec send-undo).
+
 ## Drafting convention — cite the FRs
 
 > **Every story file carries a `Delivers` row naming the FR numbers it satisfies** (or stating plainly that it delivers none, as 1.1 does).
