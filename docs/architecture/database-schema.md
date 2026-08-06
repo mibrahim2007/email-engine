@@ -34,6 +34,15 @@ CREATE POLICY tenant_isolation ON conversations
 
 ### 6.2 Core DDL
 
+> [!warning] This is an excerpt, and the constraints are what drift *(noted 2026-08-06)*
+> The block below shows **eight of the sixteen tables**. The other eight — `users`, `memberships`, `contacts`, `attachments`, `drafts`, `api_keys`, `webhook_subscriptions`, `usage_records` — have their only written DDL in [`migrations/0001_init.sql`](../../migrations/0001_init.sql), **a file §6.8c says is never applied to Neon.** [`data-models.md`](./data-models.md) lists their fields without types or constraints.
+>
+> That is workable for columns and **is not workable for `CHECK` constraints**, which is where it has already gone wrong twice — `conversations.status` and `mailboxes.provider` both carried a `CHECK` in `0001` and none here until today, and Neon's schema comes from Drizzle, which is built from this block. Both constraints would simply have been absent on the only instance that matters.
+>
+> **Worse: §6.7a amends `drafts.state`'s CHECK and `drafts` is not in this block at all.** A ruling that changes a constraint on a table the architecture does not define sends its reader to the migration the architecture disowns.
+>
+> **Rule from here: a ruling that touches a CHECK states the whole constraint, not the delta** — and a story that creates a table brings its constraints from `0001`, not only its columns. Epic 4's story does this explicitly (Story 4.1 owns `kb_sources.status`'s CHECK); the earlier epics' stories should be re-read for it before approval.
+
 ```sql
 -- Corrected 2026-08-04. `pgcrypto` was listed and is obsolete —
 -- gen_random_uuid() has been core since PostgreSQL 13. `citext` was missing
@@ -60,7 +69,9 @@ CREATE TABLE tenants (
 CREATE TABLE mailboxes (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  provider              text NOT NULL,
+  provider              text NOT NULL
+                          CHECK (provider IN ('gmail','outlook',
+                                              'imap','inbound_webhook')),
   address               citext NOT NULL,
   display_name          text,
   credentials_encrypted bytea NOT NULL,
@@ -81,7 +92,11 @@ CREATE TABLE conversations (
   contact_id       uuid REFERENCES contacts(id) ON DELETE SET NULL,
   subject          text NOT NULL DEFAULT '',
   thread_key       text NOT NULL,
-  status           text NOT NULL DEFAULT 'open',
+  -- CHECK added 2026-08-06: `migrations/0001` has always had it and §6.2 never
+  -- did. Neon's schema comes from Drizzle, which is built from this block, so
+  -- the constraint would have been lost on the only instance that matters.
+  status           text NOT NULL DEFAULT 'open'
+                     CHECK (status IN ('open','pending','resolved','spam')),
   assignee_id      uuid REFERENCES users(id) ON DELETE SET NULL,
   intent           text,
   sentiment        text,
@@ -289,9 +304,12 @@ Story 5.5 AC5 requires regenerate to retain the prior draft. The prior draft was
 
 FR42's auto-send drains `proposed` drafts above a confidence threshold and finds both. **The customer receives two replies.** FR41's exactly-once guarantee is untouched — `outbound_messages` correctly sends each of two legitimate rows exactly once. **A uniqueness mechanism protects the table it is written on and says nothing about a duplicate created above it.**
 
+**`drafts` is not in §6.2**, so the whole constraint is stated here rather than a delta — see §6.2's warning. Its existing DDL is `migrations/0001_init.sql`, which Neon never receives; Drizzle defines the table from this:
+
 ```sql
--- state CHECK gains 'superseded'
-CHECK (state IN ('proposed','approved','rejected','edited','auto_sent','superseded'))
+-- drafts.state — the complete constraint, not a delta
+CHECK (state IN ('proposed','approved','rejected','edited',
+                 'auto_sent','superseded'))
 
 CREATE UNIQUE INDEX idx_drafts_one_live
   ON drafts (tenant_id, conversation_id)

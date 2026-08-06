@@ -186,6 +186,14 @@ A rule nobody has seen fail is indistinguishable from a rule that does not work.
 
 > **The consistency audit** found six contradictions in the architecture: a section still calling a shipped migration "not yet written", a table promising a migration that a later section retired, and canonical DDL missing two columns that had been ruled elsewhere. **Amending a section is easy; noticing it invalidated a sentence three sections away is not.**
 
+**Run it on your own amendments, in the same session.** The audit that found the six above was run on someone else's work days later. Run against a day of Epic 4 and 5 rulings, the same pass immediately found:
+
+> **A schema owned by one story and used by four.** Story 4.1 owns Epic 4's schema; Stories 4.2, 4.3 and 4.5 referenced `deleted_at`, `index_run_id`, `last_index_error` and a `status` value of `empty` that 4.1's own column list and CHECK did not contain. Each story was internally right.
+> **Counts that no two documents agreed on.** `system.ts`'s permitted surface was "seven exports" and "six enumerable" *in one sentence*, against a §12 saying "six crons' worth" of a `vercel.json` listing five. **A cap whose number nobody can state is only as strong as the test enforcing it.**
+> **A ruling amending a constraint on a table the architecture does not define.** §6.7a changed `drafts.state`'s CHECK; §6.2 is an excerpt and `drafts` is not in it, so the delta sent its reader to the migration §6.8c disowns. **A ruling that touches a CHECK states the whole constraint.**
+
+The tell for all three: **a fact that lives in one document and is used by several.** Column lists, permitted-surface counts, and constraint enumerations are the three that have actually drifted here.
+
 ### ☐ A ruling invalidates memory as well as documents
 
 > The `email-engine-db-access` memory still said the scratch box *was* the project database a day after that stopped being true. The tree was corrected; the store outside the tree was not, because nothing greps it.

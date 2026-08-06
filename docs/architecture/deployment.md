@@ -31,7 +31,7 @@
 >
 > **It is the most dangerous of the five and needs the opposite failure mode from the others.** `poll-mailboxes` enumerating nothing means no mail arrives — bad, loud once noticed, and reversible. **`purge-blobs` enumerating wrongly means a live tenant's attachments are deleted**, which is not reversible and which nothing downstream would flag. Its enumerator must return only tenants whose soft-delete window has *definitively* elapsed, and it should refuse to run at all if the count exceeds a sanity threshold rather than proceeding.
 >
-> Its enumerator, `tenantsDueForBlobPurge`, follows §10.2's category-two rules and is owned by Story 8.4 — making **six** crons' worth of enumerators plus the two bootstrap lookups.
+> Its enumerator, `tenantsDueForBlobPurge`, follows §10.2's category-two rules and is owned by Story 8.4 — making **five** crons' worth of enumerators plus the two bootstrap lookups, so **seven** `system.ts` exports in total. *(This said "six crons' worth" until 2026-08-06. There are five crons above and five enumerators in §10.2's table; the arithmetic was wrong in the same edit that renegotiated the cap.)*
 
 > **`reindex-kb` is the second destructive cron, and it was not read that way.** *(Added 2026-08-06, drafting Story 4.3.)* Its schedule suggests maintenance, but re-indexing **replaces a source's chunks** — so it carries `purge-blobs`'s blast radius on a nightly cadence, and the §13.1 question "which way does this job fail" has to be asked of it too.
 >
