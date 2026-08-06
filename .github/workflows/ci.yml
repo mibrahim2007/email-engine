@@ -50,6 +50,15 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Asserts every architecture shard matches its section in
+      # `Email Engine Architecture.md`. On 2026-08-06 three epics of rulings
+      # were written into the shards and not the source — and the source is
+      # what a re-shard regenerates from, so the next one would have deleted
+      # them. The shards are what everyone reads, which is exactly why nothing
+      # noticed. Cheap, and it fails in both directions.
+      - name: Architecture shards in sync
+        run: pnpm check:shards
+
       # Catches what typecheck cannot: a route that compiles but fails to
       # prerender, and the static/dynamic split AC3 depends on.
       - name: Build

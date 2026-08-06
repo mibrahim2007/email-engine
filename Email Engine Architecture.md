@@ -234,7 +234,11 @@ graph TB
 ### 4.1 `mailbox-connector`
 Owns OAuth with Gmail / Microsoft Graph and IMAP credentials. Stores refresh tokens encrypted (AES-256-GCM, key in `ENCRYPTION_KEY`), refreshes on demand, exposes a uniform `fetchSince(cursor)` / `send(message)` interface so the rest of the system never branches on provider.
 
-**Interface:** `connect(tenantId, provider, code)`, `refresh(mailboxId)`, `fetchSince(mailboxId, cursor)`, `send(mailboxId, outboundId)`, `revoke(mailboxId)`
+**Interface:** `connect(tenantId, provider, code)`, `refresh(mailboxId)`, `fetchSince(mailboxId, cursor)`, `send(mailboxId, outboundId)`, `findSent(mailboxId, messageId)`, `revoke(mailboxId)`
+
+> **`findSent` is uniform in signature and not in availability — added 2026-08-06 (Story 6.1).** The uniformity above is right for `send` and wrong for crash recovery: a row stuck in `claimed` is in an *unknown* state, and only the provider knows whether it accepted. Gmail searches `rfc822msgid:`, Graph filters `internetMessageId` in `SentItems`, and **SMTP has no such notion at all** — an IMAP `APPEND` to Sent is a separate operation from the send and may not have happened.
+>
+> So the connector carries a **capability flag**, and Story 6.1 escalates a stale SMTP claim to a human rather than guessing. **A uniform interface should hide differences that do not matter; this one matters, and hiding it produced an acceptance criterion that read implementable and was not.**
 
 ### 4.2 `ingest`
 Two entry points, one exit. Webhook (`/api/webhooks/inbound`) verifies the provider signature; Cron polls IMAP/Graph mailboxes on a per-tenant cadence. Both normalize to a `RawMessage` and enqueue one workflow run. Deduplication is a DB constraint, not a check-then-insert.
@@ -353,6 +357,15 @@ CREATE POLICY tenant_isolation ON conversations
 
 ### 6.2 Core DDL
 
+> [!warning] This is an excerpt, and the constraints are what drift *(noted 2026-08-06)*
+> The block below shows **eight of the sixteen tables**. The other eight — `users`, `memberships`, `contacts`, `attachments`, `drafts`, `api_keys`, `webhook_subscriptions`, `usage_records` — have their only written DDL in [`migrations/0001_init.sql`](../../migrations/0001_init.sql), **a file §6.8c says is never applied to Neon.** [`data-models.md`](./data-models.md) lists their fields without types or constraints.
+>
+> That is workable for columns and **is not workable for `CHECK` constraints**, which is where it has already gone wrong twice — `conversations.status` and `mailboxes.provider` both carried a `CHECK` in `0001` and none here until today, and Neon's schema comes from Drizzle, which is built from this block. Both constraints would simply have been absent on the only instance that matters.
+>
+> **Worse: §6.7a amends `drafts.state`'s CHECK and `drafts` is not in this block at all.** A ruling that changes a constraint on a table the architecture does not define sends its reader to the migration the architecture disowns.
+>
+> **Rule from here: a ruling that touches a CHECK states the whole constraint, not the delta** — and a story that creates a table brings its constraints from `0001`, not only its columns. Epic 4's story does this explicitly (Story 4.1 owns `kb_sources.status`'s CHECK); the earlier epics' stories should be re-read for it before approval.
+
 ```sql
 -- Corrected 2026-08-04. `pgcrypto` was listed and is obsolete —
 -- gen_random_uuid() has been core since PostgreSQL 13. `citext` was missing
@@ -373,13 +386,22 @@ CREATE TABLE tenants (
   -- region actually offered rather than one aspired to.
   region        text NOT NULL DEFAULT 'us-east'
                   CHECK (region IN ('us-east')),
+  -- Added 2026-08-06 (Story 6.4). Business hours need a *business* timezone;
+  -- `region` above is an infrastructure location, so a London tenant on
+  -- us-east keeps London hours. IANA name, never an offset — a stored
+  -- '-05:00' is correct for half the year. Defaulting to UTC is deliberately
+  -- slightly wrong for everyone: a default of 'America/New_York' would look
+  -- right to the majority and be invisibly wrong for the rest (§6.2 warning).
+  timezone      text NOT NULL DEFAULT 'UTC',
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE mailboxes (
   id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id             uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  provider              text NOT NULL,
+  provider              text NOT NULL
+                          CHECK (provider IN ('gmail','outlook',
+                                              'imap','inbound_webhook')),
   address               citext NOT NULL,
   display_name          text,
   credentials_encrypted bytea NOT NULL,
@@ -400,7 +422,11 @@ CREATE TABLE conversations (
   contact_id       uuid REFERENCES contacts(id) ON DELETE SET NULL,
   subject          text NOT NULL DEFAULT '',
   thread_key       text NOT NULL,
-  status           text NOT NULL DEFAULT 'open',
+  -- CHECK added 2026-08-06: `migrations/0001` has always had it and §6.2 never
+  -- did. Neon's schema comes from Drizzle, which is built from this block, so
+  -- the constraint would have been lost on the only instance that matters.
+  status           text NOT NULL DEFAULT 'open'
+                     CHECK (status IN ('open','pending','resolved','spam')),
   assignee_id      uuid REFERENCES users(id) ON DELETE SET NULL,
   intent           text,
   sentiment        text,
@@ -459,6 +485,12 @@ CREATE TABLE outbound_messages (
   attempt_count       smallint NOT NULL DEFAULT 0,
   last_error          text,
   provider_message_id text,
+  -- Both added 2026-08-06 (Story 6.1). `message_id` is the RFC 5322 header
+  -- we generate and persist *before* the send attempt: it is what makes
+  -- crash recovery possible (findSent, §4.1) and what matches an inbound
+  -- DSN back to the send it is about (Story 6.5). One column, both problems.
+  message_id          text,
+  claimed_at          timestamptz,
   scheduled_for       timestamptz NOT NULL DEFAULT now(),
   sent_at             timestamptz,
   created_at          timestamptz NOT NULL DEFAULT now()
@@ -598,6 +630,46 @@ Append-only like `audit_events` — no `UPDATE` or `DELETE` grant. A timeline en
 
 The index leads with `tenant_id` per §6.3's rule, and `tests/rls_policy_coverage.sql` will fail the PR if the policy above is ever dropped or written `USING`-only.
 
+### 6.7a Two Epic 5 schema rulings — Drizzle, not hand-written (2026-08-06)
+
+Both found drafting Epic 5. Neither is a `migrations/` change: `0003` is the last hand-written migration (§6.9), and both tables below are defined by Drizzle on Neon.
+
+**1. `drafts` gains `superseded`, plus a partial unique index.**
+
+Story 5.5 AC5 requires regenerate to retain the prior draft. The prior draft was never approved or rejected, so it stays `proposed` — and the conversation now holds **two live drafts with nothing but `created_at` to separate them.**
+
+FR42's auto-send drains `proposed` drafts above a confidence threshold and finds both. **The customer receives two replies.** FR41's exactly-once guarantee is untouched — `outbound_messages` correctly sends each of two legitimate rows exactly once. **A uniqueness mechanism protects the table it is written on and says nothing about a duplicate created above it.**
+
+**`drafts` is not in §6.2**, so the whole constraint is stated here rather than a delta — see §6.2's warning. Its existing DDL is `migrations/0001_init.sql`, which Neon never receives; Drizzle defines the table from this:
+
+```sql
+-- drafts.state — the complete constraint, not a delta
+CHECK (state IN ('proposed','approved','rejected','edited',
+                 'auto_sent','superseded'))
+
+CREATE UNIQUE INDEX idx_drafts_one_live
+  ON drafts (tenant_id, conversation_id)
+  WHERE state = 'proposed';
+```
+
+Regenerate supersedes the prior draft in the **same transaction** as the insert. AC5's "retained in history" holds — the row stays readable with its confidence and citations intact.
+
+The index is the point: two concurrent regenerates cannot both land, and Epic 6's drain cannot find two candidates, **because the database will not hold them** — not because every query remembered to `ORDER BY`. Fourth time an invariant was made structural rather than temporal, after `scheduled_for`, the backfill window, and Story 4.3's atomic promotion.
+
+> **A partial unique index enforces *at most one*, which is what this needs** — and is precisely what Story 1.5's last-owner rule could not use, because that one needs *at least one* and there is no row to hang a constraint on when the last one leaves. Same tool, decisive in one case and useless in the other.
+
+**2. Classification moves onto `messages`, and `requires_human` becomes a latch.**
+
+FR30 classifies **every inbound message**; `conversations` holds one `intent`, one `sentiment`, one `urgency`, one `requires_human`, and `messages` holds none. So each message overwrites its predecessor — identical to correct behaviour for a single-message conversation, which is every conversation in testing.
+
+**The damage is not the lost history.** Message 2 is angry and escalates; message 3 says "never mind, thanks" and its classification writes `requires_human = false`. **The conversation silently leaves the escalation queue and nobody ever read message 2.** Worse the more polite the customer is, and §1.4's escalation-precision metric measures flags that were raised — it cannot see one withdrawn.
+
+`messages` gains `intent`, `sentiment`, `urgency`, `language`, `pii_detected`, `requires_human`, `classified_at`, `classification_model`, all nullable — a row predating Story 5.1 is `classified_at IS NULL`, which is true and distinguishable from "classified as nothing".
+
+The conversation's columns become a **derived summary with stated rules**, never last-write-wins: `intent` is the **first** classified (what the customer originally wanted), `sentiment` the **most negative** seen, `urgency` the **maximum** seen, and `requires_human` **latched** — set by a classifier, cleared only by a human resolving, assigning, or dismissing.
+
+> **An acceptance criterion that reads like a field is often a state machine.** Third instance: Story 1.5's last-owner rule, the send-undo race, and now this. The tell is a value that a later, individually-correct write may lower.
+
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 
 
@@ -714,6 +786,36 @@ Story 2.8 bounds backfill to `[connected_at − 30 days, connected_at)` so it ca
 
 > **The general form is worth keeping.** A timestamp that means "when this row was created" and a timestamp that means "when this thing last started" coincide until the thing restarts — and reusing one for the other is a bug that cannot be found by testing the happy path, only by asking what happens the second time.
 
+### 6.8f RLS post-filters an approximate index, so §6.4's semantic half returns nothing at scale (ruled 2026-08-06)
+
+Found drafting Story 4.4, comparing Epic 4's requirements to Epic 1's design. **§6.4 is correct as written and stops working somewhere between the first tenant and the five hundredth.**
+
+**With an approximate index, filtering is applied after the index is scanned.** pgvector documents it plainly: with `hnsw.ef_search` at its default of 40, a condition matching 10% of rows leaves about 4 rows. An RLS policy is a filter — `USING (tenant_id = current_tenant_id())` is applied to tuples HNSW has already returned, and cannot restrict which region of the graph is searched. §6.4's deliberate absence of a `tenant_id` predicate, which is what makes it correct, is also what leaves the planner nothing to narrow with.
+
+At NFR7's scale — 500 tenants × 5,000 chunks = 2.5M rows, one tenant holding 0.2% — the `semantic` CTE asks for `LIMIT 30` and expected survivors are **40 × 0.002 ≈ 0.08 rows.**
+
+**Nothing errors.** The `LEFT JOIN`s and `WHERE s.id IS NOT NULL OR k.id IS NOT NULL` behave exactly as written, RRF fuses one input instead of two, and **hybrid retrieval silently becomes keyword-only.** FR29 reads as satisfied because both halves ran. NFR5's 150ms budget is *easier* to hit, because the expensive half found nothing — **the performance target rewards the failure.** Downstream, Epic 5 drafts against whatever literal keyword overlap survives, with citations, confidence, and a tool trace that all look normal.
+
+**No acceptance criterion in Epic 4 could catch it.** Every one measures a single tenant, where that tenant is 100% of the table, RLS filters nothing, and 40 comfortably serves 30. The defect is a function of tenant count, so it ships green and worsens with every customer added.
+
+**Ruling — iterative index scans, set transaction-locally in `withTenant()`:**
+
+```sql
+SET LOCAL hnsw.iterative_scan = strict_order;
+SET LOCAL hnsw.max_scan_tuples = 40000;
+SET LOCAL hnsw.ef_search = 200;
+```
+
+pgvector 0.8 (the pinned version) added iterative scans for exactly this: the index is scanned further until enough rows survive filtering. `strict_order` and not `relaxed_order`, because §6.4 takes `LIMIT 30` from a distance ordering and feeds `row_number()` into RRF — relaxed order permits the wrong 30 to be taken, corrupting the rank input the fusion is computed from. `SET LOCAL` for the same reason `app.tenant_id` is transaction-local: it must not leak across pooled connections.
+
+**Iterative scan is bounded, so it narrows the window rather than closing it.** When the semantic CTE returns zero rows against a non-empty knowledge base, that is an observable event and must be logged — it is the only signal separating "hybrid retrieval running" from "hybrid retrieval reporting".
+
+**The structural fix is partitioning, and it is deferred with a trigger.** pgvector recommends partial indexes for few distinct filter values and **partitioning for many**; 500 tenants is many. Partitioning `kb_chunks` by `tenant_id` changes Epic 5's write path and is not worth doing before a customer exists — but `SET LOCAL` is a mitigation, not an answer. **Revisit when `max_scan_tuples` is being reached routinely**, which the log line above is what makes visible.
+
+**And every measurement of this query must be multi-tenant.** A single-tenant benchmark measures a different query and would certify this defect as passing — including the recall@8 set that answers PRD §8 Q7. Whoever sets that bar must be told which measurement it is a bar for.
+
+> **The general form.** *A correctness mechanism and a performance mechanism can each be right and compose into something that is neither.* RLS is applied after the ANN scan; neither document describing them mentions the other, because each is complete on its own terms. The tell is a filter that the query deliberately does not express — if the planner cannot see the predicate, no index can be chosen for it.
+
 ### 6.9 `notifications`, and where migrations live from here
 
 **The table** (PO finding F3, PRD FR55, Story 1.7). Tenant-scoped and per-recipient, so RLS applies on `tenant_id` as everywhere else:
@@ -820,6 +922,15 @@ sequenceDiagram
 
 Each `step:` is a Workflow checkpoint. If the model call times out, only that step retries — the parse, the thread resolution, and the attachment uploads are not redone.
 
+> [!warning] The pipeline branches once, early: a bounce is an inbound email — ruled 2026-08-06 (Story 6.5)
+> There is no bounce API for Gmail, Graph, or SMTP. **The delivery status notification *is* the notification**, and it arrives through the webhook and the poll like any customer message.
+>
+> Followed through the diagram above: it parses cleanly; **§4.3 stitches it into the original conversation**, because a DSN carries the failed message's `In-Reply-To`/`References`, which is exactly what thread resolution matches on; the classifier labels it as customer mail; **the agent drafts a grounded, cited reply**; and above threshold, auto-send **mails `MAILER-DAEMON`.** That reply bounces, and the loop runs at the drain's cadence — **a mail loop assembled from five individually-correct stories.** Meanwhile FR44's "surface the delivery failure on the conversation" never happens, because the failure was ingested *as* a conversation.
+>
+> **Ruling: detect the DSN in the parse step and branch before classification.** `Content-Type: multipart/report; report-type=delivery-status` (RFC 3464) with sender heuristics as fallback. **This is deliberately not the classifier's job** — "is this a bounce" is answerable from a header, and must not depend on a model call that can fail open. The DSN attaches to the conversation as a `conversation_events` row of type `bounced` and never reaches drafting.
+>
+> **`bounced` was already in §6.7's CHECK list.** The record was designed and the detection was not — the F3/F8 shape again. The flag belongs in Story 2.5's parser; that story is `Draft, not Approved` and the scope change is raised for the PO rather than assumed.
+
 ### 8.2 Outbound send
 
 Cron every 30s → claim up to N pending rows per tenant in one statement:
@@ -837,6 +948,22 @@ RETURNING *;
 ```
 
 `FOR UPDATE SKIP LOCKED` lets concurrent drains coexist without double-sending. Send via connector → `sent` + provider id, or `failed` with backoff (`scheduled_for = now() + interval`), or `dead` after 5 attempts.
+
+> [!important] The statement above claims nothing, and returns too much — corrected 2026-08-06 (Story 6.1)
+> **It runs with no tenant.** `/api/cron/drain-outbox` has no session, `outbound_messages` carries `USING (tenant_id = current_tenant_id())`, the predicate is NULL, and the policy denies — so the drain claims **zero rows and sends nothing, silently.** The 2026-08-05 cron finding, in the one job whose purpose is that replies leave the building.
+>
+> **And `RETURNING *` is a cross-tenant read of full rows** — `last_error`, `provider_message_id`, `draft_id`, `conversation_id` for fifty rows of any tenant, on the system connection. §10.2's category-two rule is explicit that an enumerator returning rows is a cross-tenant read with a job title.
+>
+> **The two rules genuinely conflict here**, which is why this needed a ruling. §10.2 says enumerate identifiers then re-enter `withTenant()`; AC2 says the claim is a single atomic statement, and that atomicity is what makes exactly-once true. Split them and two drains enumerate the same row and both claim it — `SKIP LOCKED` is defeated precisely by being obeyed in two steps.
+>
+> **Ruling: the atomic claim *is* the escape hatch, returning `(tenant_id, outbound_id)` and nothing else.** `outbound_claim_due(p_limit int)`, `SECURITY DEFINER`, pinned `search_path`, `REVOKE` then `GRANT` — and **`VOLATILE`, not `STABLE`, because it writes.** It is the only category-two function that mutates, and that is what makes it atomic. Everything after the claim happens inside `withTenant()` per tenant, so the system connection never sees message content. Full SQL in Story 6.1.
+>
+> **Renamed from `outboundDue` to `outboundClaimDue`** in §10.2's table: a name that says "due" invites a future reader to call it twice.
+
+> [!important] A claimed row that crashes is in an *unknown* state, not a failed one — ruled 2026-08-06
+> Retry it and the customer may get two replies (AC3 forbids); abandon it and the reply may never send (NFR18 forbids). **Resolution requires asking the provider what it did** — and §4.1's uniform `send(message)` interface, which exists so the rest of the system never branches on provider, is what makes the story read implementable when it is not. **Recovery genuinely branches on provider.**
+>
+> The composer generates and persists the `Message-ID` **before** the attempt; the connector gains `findSent(mailboxId, messageId)`; recovery looks for our own id in sent items. Gmail (`rfc822msgid:`) and Graph (`internetMessageId`) can. **SMTP cannot** — an IMAP `APPEND` to Sent is a separate operation from the send and may not have happened — so a stale `claimed` row on an SMTP mailbox is **escalated to a human, never auto-retried.** A permanent property of the protocol, not a gap to close. See §4.1.
 
 ### 8.3 Knowledge base indexing
 
@@ -1094,7 +1221,9 @@ This is the bootstrap problem again at a different scale — and it means the es
 | Category | Shape | Members |
 |---|---|---|
 | **Bootstrap lookup** | External identifier → **one** tenant, before a session exists | `tenantByClerkOrg`, `tenantByApiKeyHash` |
-| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup`, `tenantsDueForBlobPurge` |
+| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundClaimDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup`, `tenantsDueForBlobPurge` |
+
+> **`outboundClaimDue` is the one that writes** *(renamed from `outboundDue`, 2026-08-06)*. Every other enumerator is `STABLE` and reads; this one is `VOLATILE` and performs §8.2's atomic claim, because separating the enumeration from the claim defeats `SKIP LOCKED` — two drains would enumerate the same row and both claim it. **The atomicity is why it must be the escape hatch rather than sit behind one**, and the old name invited a future reader to call it twice. See §8.2.
 
 **The discipline that makes category two safe is what it must not return.**
 
@@ -1102,7 +1231,9 @@ This is the bootstrap problem again at a different scale — and it means the es
 2. **The work happens inside `withTenant()`.** The cron enumerates, then loops, then re-enters a tenant-scoped session per tenant to do anything real. **Processing on the system connection would bypass RLS for the entire pipeline** — which is precisely the failure the whole design exists to prevent, arriving through the back door of a scheduled job.
 3. **Same mechanism as the bootstrap lookup**: `SECURITY DEFINER`, pinned `search_path`, minimal return, `REVOKE FROM PUBLIC` then grant.
 4. **A destructive enumerator needs a refusal path**, not just a correct query. `tenantsDueForBlobPurge` deletes; if its window arithmetic is wrong it destroys a live tenant's attachments and nothing downstream notices. It must refuse to proceed when the returned count exceeds a sanity threshold — see §12.
-5. **The surface test still applies**, now over seven exports rather than two. Six enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
+5. **The surface test still applies**, now over **seven** exports rather than two — two bootstrap lookups plus one enumerator for each of §12's five crons. Seven enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
+
+> **The count was written three ways across two documents and none of them agreed** *(corrected 2026-08-06)*. This point said "seven exports" and then "six enumerable" in the same sentence; §12 said "six crons' worth of enumerators" against a `vercel.json` listing five. **A cap whose number nobody can state is only as strong as the test that enforces it** — which is the argument for the surface test having been written at all, and against ever relying on the prose. The test is right because it enumerates; the prose was wrong because it counted.
 
 > **Why the list grew and the rule did not.** "Adding a third is an architecture decision" was the right rule and it worked exactly as intended — the third arrived, it was noticed, and it turned out to be four. **A cap that gets renegotiated when the reason is good is doing its job; a cap that gets quietly edged past is not.** What matters is that `system.ts` stays enumerable and every entry says why it cannot be tenant-scoped.
 
@@ -1140,6 +1271,41 @@ const result = await streamText({
 ```
 
 Model choice is a tenant setting resolved against an allow-list per plan. The Gateway handles provider failover and reports token/cost per request, which flows into `usage_records`.
+
+#### The playground shares the agent and must not share the dispatcher (ruled 2026-08-06)
+
+FR36 and Story 5.6 AC2 require the playground to use the **identical agent, tools, and knowledge as production**. That wording is right — a playground that behaves differently tests nothing — and taken literally it is dangerous.
+
+`call_tenant_webhook` is a *"tenant-defined action (order status, **refund**)"* against a URL the tenant registered under FR49. **So an admin typing into a screen labelled "test your bot" can issue a real refund against their production order system.** `escalate_to_human` is milder and still wrong: it latches `requires_human` on a conversation that does not exist and raises an FR55 notification for something nobody did.
+
+**And Story 5.6 AC5 makes it adversarial.** The prompt-injection corpus exists to make the agent take unauthorized actions, and AC5 requires running it *in the playground*, one click, as a visible affordance. **The corpus proving the bot cannot be manipulated would fire live webhooks at the tenant's business while proving it** — and AC5's assertion is about the model's *decision*, which can only be checked after the call has left.
+
+**Ruling: the difference goes below the agent, at the dispatcher.**
+
+| Layer | Playground | Production |
+|---|---|---|
+| Agent, prompt, persona, model | identical | identical |
+| Tool definitions and schemas | identical | identical |
+| Knowledge and retrieval | identical | identical |
+| Read-only tools (`search_knowledge_base`, `lookup_customer`) | execute | execute |
+| **Side-effecting** (`call_tenant_webhook`, `escalate_to_human`) | **captured, not dispatched** | dispatched |
+
+The model decides identically and the trace records the decision identically, so AC5's assertion is made against the captured call. **The trace becomes the delivery mechanism**: the playground shows the exact signed payload that *would* have gone out, to the exact registered endpoint — strictly more useful for testing than firing it and reading a `200`.
+
+**Constrain it, do not document it.** The dispatcher takes an explicit mode, the tool registry marks each tool `read-only` or `side-effecting`, and **a test asserts every side-effecting tool is captured in playground mode** — so a sixth tool added later cannot default to dispatching. Same reasoning as `system.ts`'s surface test and the provider-SDK lockfile assertion.
+
+**PRD Story 5.6 AC2 is amended to say this**, because a correct implementation of "identical" is the unsafe one. Third time an absolute's wording was itself the defect, after §10.2's "every repository function" and §13.3's "no deserialization path".
+
+#### The 60-second cap is an abort, not a budget (ruled 2026-08-06)
+
+§10.4 sets `AbortSignal.timeout(60_000)` and PRD Story 5.2 AC2 restates it. **NFR3 gives the whole pipeline 30 seconds at p95** — and §8.1 runs parse → thread resolve → classify (a model call) → retrieve → agent loop → persist in sequence, with **only the agent step carrying a stated budget, twice the end-to-end target.**
+
+Not formally contradictory: a 30s p95 coexists with a 60s ceiling if the tail is thin. **But nothing made that true and nothing measured it.** NFR3 is asserted once, end-to-end, in Story 5.3 AC5; when it fails, no artifact says which step spent the time.
+
+- **The abort stays at 60s.** It exists to stop a hung run; lowering it converts slow drafts into escalations, which is worse.
+- **The agent's working budget is ~20s**, which is what NFR3 implies once classify, retrieve, and persist are accounted for. Crossing it is a signal, not a failure.
+- **Per-step durations are recorded on the draft.** `drafts.tool_calls` is already `jsonb` and already carries per-step data, so this costs a field rather than a table. Without it NFR3 is a number that can only be missed, never diagnosed.
+- **NFR3 is measured from `messages.received_at`**, not from workflow start. The queue wait is part of what the customer experiences, and excluding it measures a system nobody is running.
 
 ### 10.5 Error handling
 
@@ -1225,7 +1391,13 @@ email-engine/
 >
 > **It is the most dangerous of the five and needs the opposite failure mode from the others.** `poll-mailboxes` enumerating nothing means no mail arrives — bad, loud once noticed, and reversible. **`purge-blobs` enumerating wrongly means a live tenant's attachments are deleted**, which is not reversible and which nothing downstream would flag. Its enumerator must return only tenants whose soft-delete window has *definitively* elapsed, and it should refuse to run at all if the count exceeds a sanity threshold rather than proceeding.
 >
-> Its enumerator, `tenantsDueForBlobPurge`, follows §10.2's category-two rules and is owned by Story 8.4 — making **six** crons' worth of enumerators plus the two bootstrap lookups.
+> Its enumerator, `tenantsDueForBlobPurge`, follows §10.2's category-two rules and is owned by Story 8.4 — making **five** crons' worth of enumerators plus the two bootstrap lookups, so **seven** `system.ts` exports in total. *(This said "six crons' worth" until 2026-08-06. There are five crons above and five enumerators in §10.2's table; the arithmetic was wrong in the same edit that renegotiated the cap.)*
+
+> **`reindex-kb` is the second destructive cron, and it was not read that way.** *(Added 2026-08-06, drafting Story 4.3.)* Its schedule suggests maintenance, but re-indexing **replaces a source's chunks** — so it carries `purge-blobs`'s blast radius on a nightly cadence, and the §13.1 question "which way does this job fail" has to be asked of it too.
+>
+> The naive shape is `DELETE` the old chunks then insert the new ones. **A crash between the two leaves the source with zero chunks and `status = 'indexed'`** — and unlike a source that never worked, this one worked yesterday. Nothing alerts: retrieval returns fewer rows, RRF still returns something, drafts still generate with plausible confidence. **The product does not break, it quietly gets worse.**
+>
+> **Ruling: embed into a new chunk set first, promote in one transaction, discard on any failure — never delete before the replacement exists.** Plus the refusal path §12 already requires of destructive enumerators: a re-index that would take a populated source to zero does not promote, it keeps the old chunks and reports `empty`. A URL that has started returning a login page is the ordinary case. Owned by Story 4.3; its enumerator `kbSourcesDueForReindex` follows §10.2's category-two rules.
 
 > **The nightly eval set is not a Vercel cron.** PRD Story 8.5 AC3 and §14 describe a nightly eval that reports regressions without blocking merges. It runs on a CI schedule, has no tenant context to establish, and touches no tenant data — **listing it here would give it a scoping problem it does not have.** Stated so nobody adds it.
 
@@ -1256,6 +1428,7 @@ No provider AI keys — model access is entirely through the Gateway.
 | Email HTML | `mailparser` → DOMPurify allow-list → rendered in a sandboxed iframe with a strict CSP; remote images proxied and off by default |
 | Prompt injection | Retrieved KB text and inbound email bodies are wrapped in delimited untrusted blocks; the system prompt states tool use is never authorized by message content; `call_tenant_webhook` requires a pre-registered URL and never accepts a model-supplied host |
 | Attachments | Size cap, type allow-list, true-type check against magic bytes, download-only from a non-app origin. **No malware scanning in MVP** — see §13.3 |
+| Knowledge sources | *(added 2026-08-06, Story 4.1.)* Uploads reuse FR57's magic-byte true-type check and executable refusal — **the same helper, not a second implementation.** URL sources fetch `http`/`https` only, refuse loopback, link-local and RFC-1918 hosts **re-checked after every redirect**, under size and time caps, and never echo the fetched response into an error an admin can read. This is the one file path in the product that is *parsed* rather than stored — see §13.3 |
 | Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls |
 | Audit | Append-only `audit_events`; no `UPDATE`/`DELETE` grant to `app_user` |
 | Headers | CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` via `next.config.ts` |
@@ -1295,7 +1468,11 @@ The table promising a control that does not exist is worse than the gap. §13.1 
 **Why the residual risk is narrow.** The attachment never executes anywhere we control:
 
 - It is **never rendered inline** — download only, from Vercel Blob, a different origin to the app.
-- It is **never parsed by the AI.** §6.4's retrieval reads `kb_chunks`; the agent's tools do not open attachments. There is no deserialization path from a hostile file into the model.
+- It is **never parsed by the AI.** §6.4's retrieval reads `kb_chunks`; the agent's tools do not open attachments. No attachment becomes a `kb_chunk`, so there is no deserialization path from an *emailed* file into the model.
+
+  > **Scoped 2026-08-06, drafting Story 4.1.** This bullet previously ended "there is no deserialization path from a hostile file into the model" with no qualifier, which read as a property of the system. It is a property of the **attachment** path, and it stays true. Epic 4 builds a second file path deliberately — an uploaded PDF *is* fetched, parsed, and turned into retrievable context the agent reads — with its own controls in Story 4.1 rather than this exemption. Left absolute, the sentence stops being true the day 4.1 merges, in the table a buyer's security reviewer reads.
+  >
+  > The two paths differ in threat, not just in plumbing: an admin uploading their own handbook is not a stranger emailing an executable. **But Story 4.1's URL source type is not admin-authored content at all** — it is a server-side fetch of an address the tenant names, landing in the same extractor — so that mitigation covers one of the two source types and not the other. NFR14 already places "retrieved documents" inside the threat model; this bullet is where the architecture had them outside it.
 - It reaches **only the tenant's own agents**, never third parties, and only via a signed expiring URL.
 
 What remains is an agent choosing to download and open a file a stranger emailed them — which is true of the mailbox they already have, with or without this product. **Detection is not what protects them; containment and honest labelling are.** Those cost nothing.

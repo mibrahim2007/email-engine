@@ -208,6 +208,18 @@ A rule nobody has seen fail is indistinguishable from a rule that does not work.
 
 The tell for all three: **a fact that lives in one document and is used by several.** Column lists, permitted-surface counts, and constraint enumerations are the three that have actually drifted here.
 
+### ☐ Ask which copy is canonical, and which one you just edited
+
+> **2026-08-06.** Three epics of architecture rulings — the RLS/HNSW retrieval finding, the bounce-loop ruling, the playground dispatcher, `superseded`, the classification latch — were written into `docs/architecture/*.md`. **Every one of those files says, on line two, "Derived file — edit the source document and re-shard, never this copy."**
+>
+> Nothing noticed for two days, because **the shards are what everybody reads**: they are the `devLoadAlwaysFiles` set. The working copies were correct and only the canonical artifact was stale.
+>
+> **That is the dangerous direction.** The source is what re-sharding regenerates *from*, so the next re-shard would have silently deleted roughly 24KB of rulings that exist nowhere else.
+
+The check is one question — *is the file I am editing generated from something?* — and the answer is usually written at the top of the file. **Now enforced by `pnpm check:shards` in CI**, which fails in both directions, because a documented convention grows exceptions and a tested one has to be argued with.
+
+> **And watch that guard fire too.** The first version of the check reported all fourteen sections as differing: the source is CRLF in the working tree and the shards are LF. It would have been committed green-looking and useless in the other direction — a check that always fails gets disabled, which is worse than no check. **It was only caught by running it against a tree already known to be in sync.**
+
 ### ☐ A ruling invalidates memory as well as documents
 
 > The `email-engine-db-access` memory still said the scratch box *was* the project database a day after that stopped being true. The tree was corrected; the store outside the tree was not, because nothing greps it.
