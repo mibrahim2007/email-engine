@@ -65,10 +65,10 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR38 | Approve, edit-send, regenerate, reject; outcome recorded | 5.5 AC3–4 | ✅ |
 | FR39 | Correct threading headers on outbound | 6.2 AC1–2 | ✅ |
 | FR40 | Tenant signature and branding applied | 6.2 AC3 | ✅ |
-| FR41 | Each outbound message sent exactly once | 6.1 | ✅ |
-| FR42 | Auto-send above a confidence threshold | 6.3 | ✅ |
+| FR41 | Each outbound message sent exactly once | 6.1 | ⚠ **holds only if `superseded` ships** — see T-2 |
+| FR42 | Auto-send above a confidence threshold | 6.3 | ⚠ **blocked on §8 Q10** |
 | FR43 | Business hours and configurable delay | 6.4 | ✅ |
-| FR44 | Bounces and delivery failures surfaced | 6.5 | ✅ |
+| FR44 | Bounces and delivery failures surfaced | 6.5, **2.5 (detection)** | ⚠ **needs a 2.5 scope change** |
 | FR45 | Manual reply bypassing the AI | 3.5 | ✅ |
 | FR46 | API keys: create, scope, revoke, shown once | 7.1 | ✅ |
 | FR47 | Versioned REST API | 7.2 | ✅ |
@@ -110,7 +110,7 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 | NFR15 | Audit events immutable to the app role | **1.5 AC6** asserts it in a test, not only in a grant | ✅ F8 fixed |
 | NFR16 | TLS 1.2+, HSTS | 8.4 AC1 | ✅ |
 | NFR17 | 99.9 % monthly availability | **Reclassified** as an operational SLO; observed via 8.3 | ✅ F11 fixed |
-| NFR18 | No message lost to a transient failure | 2.7 AC5 | ✅ |
+| NFR18 | No message lost to a transient failure | 2.7 AC5, **6.1 AC5** | ✅ — inbound **and** outbound halves |
 | NFR19 | Model outage degrades to queued drafts | **5.4 AC6** — a simulated Gateway failure | ✅ F11 fixed |
 | NFR20 | Point-in-time recovery, last 7 days | **1.2 AC7** — window set and a restore exercised | ✅ F10 fixed |
 | NFR21 | GDPR export/erasure within 30 days | 8.4 AC3 | ✅ |
@@ -183,6 +183,22 @@ So the matrix and the epic named different owners for the same half of one requi
 Resolved by moving the cron to 4.3 AC6 (see the epic). The row above now names both halves explicitly, which is the cheap version of the fix: **when an FR contains the word "and", map each half.**
 
 This is the matrix's third recorded blind spot, alongside gaps that live *between* two stories and citations that read like owners.
+
+### T-2 — FR41 was green while three ways to send twice were undiscovered *(2026-08-06)*
+
+FR41 — "each outbound message sent exactly once, even under concurrent send attempts or retries" — has mapped to Story 6.1 and shown ✅ since this table was built. Story 6.1 does deliver it: `FOR UPDATE SKIP LOCKED`, ten concurrent drains, each row sent once. **The mapping was never wrong.**
+
+Drafting Epics 5 and 6 found three ways a customer receives two replies, **none of which FR41's mechanism touches**:
+
+| Found in | The duplicate is created |
+|---|---|
+| Story 5.5 | **One table up.** Regenerate leaves two `proposed` drafts; auto-send drains both. Two *legitimate* outbound rows, each correctly sent once |
+| Story 6.5 | **By the product replying to its own bounce**, which threads back in as a customer message and draws another reply |
+| Story 6.4 | **By time.** An overnight queued auto-send fires at 9am after an agent already answered at 8am |
+
+**A requirement→story map records that a story delivers the guarantee. It cannot record what the guarantee does not cover.** FR41 is about concurrency on one row, and all three of these are upstream, adjacent, or downstream of that row.
+
+The row above now carries the dependency rather than a bare ✅. The general lesson is the matrix's fourth recorded blind spot: **an FR phrased as a guarantee should be read for its scope, not just its owner** — "exactly once" named a mechanism, and three failure modes lived outside it while the cell stayed green.
 
 ---
 

@@ -63,6 +63,13 @@ CREATE TABLE tenants (
   -- region actually offered rather than one aspired to.
   region        text NOT NULL DEFAULT 'us-east'
                   CHECK (region IN ('us-east')),
+  -- Added 2026-08-06 (Story 6.4). Business hours need a *business* timezone;
+  -- `region` above is an infrastructure location, so a London tenant on
+  -- us-east keeps London hours. IANA name, never an offset — a stored
+  -- '-05:00' is correct for half the year. Defaulting to UTC is deliberately
+  -- slightly wrong for everyone: a default of 'America/New_York' would look
+  -- right to the majority and be invisibly wrong for the rest (§6.2 warning).
+  timezone      text NOT NULL DEFAULT 'UTC',
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
@@ -155,6 +162,12 @@ CREATE TABLE outbound_messages (
   attempt_count       smallint NOT NULL DEFAULT 0,
   last_error          text,
   provider_message_id text,
+  -- Both added 2026-08-06 (Story 6.1). `message_id` is the RFC 5322 header
+  -- we generate and persist *before* the send attempt: it is what makes
+  -- crash recovery possible (findSent, §4.1) and what matches an inbound
+  -- DSN back to the send it is about (Story 6.5). One column, both problems.
+  message_id          text,
+  claimed_at          timestamptz,
   scheduled_for       timestamptz NOT NULL DEFAULT now(),
   sent_at             timestamptz,
   created_at          timestamptz NOT NULL DEFAULT now()

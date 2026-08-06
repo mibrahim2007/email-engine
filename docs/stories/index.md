@@ -59,7 +59,20 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [5.5](./5.5.md) | Draft review panel | **Draft** — 🔴 AC5's retained draft stays `proposed`, so Epic 6 auto-sends **two replies**. Adds `superseded` + a partial unique index |
 | [5.6](./5.6.md) | Persona settings and playground | **Draft** — 🔴 "identical tools" lets the playground issue a **real refund**; ruled a non-dispatching sink. Closes traceability F11's NFR4 |
 
-**Thirty-two stories drafted — all of Epics 1, 2, 3, 4 and 5.** None past 1.1 is Approved — each names what it waits on. Epics 6–8 are not drafted. Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
+## Epic 6 — Sending and automation
+
+| Story | Title | Status |
+|---|---|---|
+| [6.1](./6.1.md) | Outbox and exactly-once sending | **Draft** — 🔴 §8.2's claim runs with no tenant so the drain **sends nothing**, and `RETURNING *` is a cross-tenant read. 🔴 AC5 is unimplementable behind §4.1's uniform interface |
+| [6.2](./6.2.md) | Reply threading and branding | **Draft** — threading needs the inbound header chain, not `thread_key`. **AC2 needs three real mailbox accounts** |
+| [6.3](./6.3.md) | Auto-send with a confidence threshold | **Draft** — 🔴 **blocked on Q10**: AC4's dialog cannot explain a threshold on an undefined number |
+| [6.4](./6.4.md) | Business hours, delay, and rules | **Draft** — 🔴 AC5's overnight queue freezes a decision for 14 hours; six preconditions now re-checked at claim. Adds `tenants.timezone` |
+| [6.5](./6.5.md) | Bounce and failure handling | **Draft** — 🔴 **a bounce is an inbound email**, so Epic 2 threads it, Epic 5 drafts a reply, and auto-send mails `MAILER-DAEMON`. **Requires a scope change to Story 2.5 — for the PO** |
+
+> ### ⚠ Open for the PO — Story 2.5's scope
+> Story 6.5 rules that DSN detection belongs in **Story 2.5's parse step**, before classification, because "is this a bounce" is answerable from a `Content-Type` header and must not depend on a model call that can fail open. 2.5 is `Draft, not Approved`, so the change is cheap — **recorded here rather than appended to 2.5 quietly**, which is how scope inflates (Story 1.2's lesson).
+
+**Thirty-seven stories drafted — all of Epics 1 through 6.** None past 1.1 is Approved — each names what it waits on. Epics 7–8 are not drafted. Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
 
 ## Story lifecycle
 

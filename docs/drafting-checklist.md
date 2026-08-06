@@ -134,6 +134,20 @@ Check where the *duplicate* is created, not where the write is serialised.
 
 Ask: *what selects this row later, and can there be two of them?* The fix is usually a partial unique index, so the invariant is structural rather than a convention held in an `ORDER BY` that one repository function can omit.
 
+### ☐ A queued action is a decision frozen in time — ask what re-checks it
+
+Scheduling makes a decision durable. **Durable is not the same as still correct.**
+
+> **Story 6.4 AC5.** Outside business hours, auto-sends queue and fire at open — up to fourteen hours later. The drain claims on `state = 'pending' AND scheduled_for <= now()`: **two conditions, neither about whether the reply is still the right thing to send.** Overnight an agent may have replied manually, the customer may have written again, the draft may have been regenerated, the conversation may have been resolved, the contact may have hard-bounced. **All of those send anyway, at 9am, looking exactly like a correct auto-send.**
+
+The question is: *what was true when this row was written that might not be true when it runs — and does anything look?* The fix is to re-validate preconditions at claim time, not to shorten the window. One query per send against a class of incident with no upper bound, because the window is a tenant setting and a tenant can configure a weekend.
+
+### ☐ Read an FR phrased as a guarantee for its scope, not just its owner
+
+> **FR41** — "each outbound message sent exactly once, even under concurrent send attempts or retries" — mapped to Story 6.1 and green from the start, correctly. Then three ways a customer gets two replies turned up, **none of which that mechanism touches**: a duplicate draft created one table upstream (5.5), the product replying to its own bounce (6.5), and a queued send firing after a human already answered (6.4).
+
+"Exactly once", "always", "never" and "only" name a *mechanism*. Ask what sits immediately above and below it — a guarantee protects its own layer and nothing else, and a requirement→story map cannot record what a guarantee fails to cover.
+
 ### ☐ "Identical to production" is a hazard wherever production has side effects
 
 A test surface asked to behave *exactly* like the real one inherits the real one's consequences, and the requirement's own wording is what makes a correct implementation dangerous.

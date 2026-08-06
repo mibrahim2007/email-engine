@@ -90,7 +90,9 @@ This is the bootstrap problem again at a different scale — and it means the es
 | Category | Shape | Members |
 |---|---|---|
 | **Bootstrap lookup** | External identifier → **one** tenant, before a session exists | `tenantByClerkOrg`, `tenantByApiKeyHash` |
-| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup`, `tenantsDueForBlobPurge` |
+| **Work enumeration** | Cron → **`(tenant_id, entity_id)` pairs across tenants** | `mailboxesDueForPoll`, `outboundClaimDue`, `kbSourcesDueForReindex`, `tenantsDueForUsageRollup`, `tenantsDueForBlobPurge` |
+
+> **`outboundClaimDue` is the one that writes** *(renamed from `outboundDue`, 2026-08-06)*. Every other enumerator is `STABLE` and reads; this one is `VOLATILE` and performs §8.2's atomic claim, because separating the enumeration from the claim defeats `SKIP LOCKED` — two drains would enumerate the same row and both claim it. **The atomicity is why it must be the escape hatch rather than sit behind one**, and the old name invited a future reader to call it twice. See §8.2.
 
 **The discipline that makes category two safe is what it must not return.**
 

@@ -6,7 +6,11 @@
 ### 4.1 `mailbox-connector`
 Owns OAuth with Gmail / Microsoft Graph and IMAP credentials. Stores refresh tokens encrypted (AES-256-GCM, key in `ENCRYPTION_KEY`), refreshes on demand, exposes a uniform `fetchSince(cursor)` / `send(message)` interface so the rest of the system never branches on provider.
 
-**Interface:** `connect(tenantId, provider, code)`, `refresh(mailboxId)`, `fetchSince(mailboxId, cursor)`, `send(mailboxId, outboundId)`, `revoke(mailboxId)`
+**Interface:** `connect(tenantId, provider, code)`, `refresh(mailboxId)`, `fetchSince(mailboxId, cursor)`, `send(mailboxId, outboundId)`, `findSent(mailboxId, messageId)`, `revoke(mailboxId)`
+
+> **`findSent` is uniform in signature and not in availability — added 2026-08-06 (Story 6.1).** The uniformity above is right for `send` and wrong for crash recovery: a row stuck in `claimed` is in an *unknown* state, and only the provider knows whether it accepted. Gmail searches `rfc822msgid:`, Graph filters `internetMessageId` in `SentItems`, and **SMTP has no such notion at all** — an IMAP `APPEND` to Sent is a separate operation from the send and may not have happened.
+>
+> So the connector carries a **capability flag**, and Story 6.1 escalates a stale SMTP claim to a human rather than guessing. **A uniform interface should hide differences that do not matter; this one matters, and hiding it produced an acceptance criterion that read implementable and was not.**
 
 ### 4.2 `ingest`
 Two entry points, one exit. Webhook (`/api/webhooks/inbound`) verifies the provider signature; Cron polls IMAP/Graph mailboxes on a per-tenant cadence. Both normalize to a `RawMessage` and enqueue one workflow run. Deduplication is a DB constraint, not a check-then-insert.
