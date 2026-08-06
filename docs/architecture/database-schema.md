@@ -279,6 +279,43 @@ Append-only like `audit_events` — no `UPDATE` or `DELETE` grant. A timeline en
 
 The index leads with `tenant_id` per §6.3's rule, and `tests/rls_policy_coverage.sql` will fail the PR if the policy above is ever dropped or written `USING`-only.
 
+### 6.7a Two Epic 5 schema rulings — Drizzle, not hand-written (2026-08-06)
+
+Both found drafting Epic 5. Neither is a `migrations/` change: `0003` is the last hand-written migration (§6.9), and both tables below are defined by Drizzle on Neon.
+
+**1. `drafts` gains `superseded`, plus a partial unique index.**
+
+Story 5.5 AC5 requires regenerate to retain the prior draft. The prior draft was never approved or rejected, so it stays `proposed` — and the conversation now holds **two live drafts with nothing but `created_at` to separate them.**
+
+FR42's auto-send drains `proposed` drafts above a confidence threshold and finds both. **The customer receives two replies.** FR41's exactly-once guarantee is untouched — `outbound_messages` correctly sends each of two legitimate rows exactly once. **A uniqueness mechanism protects the table it is written on and says nothing about a duplicate created above it.**
+
+```sql
+-- state CHECK gains 'superseded'
+CHECK (state IN ('proposed','approved','rejected','edited','auto_sent','superseded'))
+
+CREATE UNIQUE INDEX idx_drafts_one_live
+  ON drafts (tenant_id, conversation_id)
+  WHERE state = 'proposed';
+```
+
+Regenerate supersedes the prior draft in the **same transaction** as the insert. AC5's "retained in history" holds — the row stays readable with its confidence and citations intact.
+
+The index is the point: two concurrent regenerates cannot both land, and Epic 6's drain cannot find two candidates, **because the database will not hold them** — not because every query remembered to `ORDER BY`. Fourth time an invariant was made structural rather than temporal, after `scheduled_for`, the backfill window, and Story 4.3's atomic promotion.
+
+> **A partial unique index enforces *at most one*, which is what this needs** — and is precisely what Story 1.5's last-owner rule could not use, because that one needs *at least one* and there is no row to hang a constraint on when the last one leaves. Same tool, decisive in one case and useless in the other.
+
+**2. Classification moves onto `messages`, and `requires_human` becomes a latch.**
+
+FR30 classifies **every inbound message**; `conversations` holds one `intent`, one `sentiment`, one `urgency`, one `requires_human`, and `messages` holds none. So each message overwrites its predecessor — identical to correct behaviour for a single-message conversation, which is every conversation in testing.
+
+**The damage is not the lost history.** Message 2 is angry and escalates; message 3 says "never mind, thanks" and its classification writes `requires_human = false`. **The conversation silently leaves the escalation queue and nobody ever read message 2.** Worse the more polite the customer is, and §1.4's escalation-precision metric measures flags that were raised — it cannot see one withdrawn.
+
+`messages` gains `intent`, `sentiment`, `urgency`, `language`, `pii_detected`, `requires_human`, `classified_at`, `classification_model`, all nullable — a row predating Story 5.1 is `classified_at IS NULL`, which is true and distinguishable from "classified as nothing".
+
+The conversation's columns become a **derived summary with stated rules**, never last-write-wins: `intent` is the **first** classified (what the customer originally wanted), `sentiment` the **most negative** seen, `urgency` the **maximum** seen, and `requires_human` **latched** — set by a classifier, cleared only by a human resolving, assigning, or dismissing.
+
+> **An acceptance criterion that reads like a field is often a state machine.** Third instance: Story 1.5's last-owner rule, the send-undo race, and now this. The tell is a value that a later, individually-correct write may lower.
+
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 
 

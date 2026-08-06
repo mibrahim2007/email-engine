@@ -48,7 +48,18 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [4.4](./4.4.md) | Hybrid retrieval | **Draft** — 🔴 **RLS post-filters the HNSW scan**; at NFR7's scale the semantic half returns ~0 rows and hybrid silently becomes keyword-only. **AC5 blocked on PRD §8 Q7** |
 | [4.5](./4.5.md) | Knowledge search UI | **Draft** — the only surface where a human sees the two retrieval halves separately |
 
-**Twenty-six stories drafted — all of Epics 1, 2, 3 and 4.** None past 1.1 is Approved — each names what it waits on. Epics 5–8 are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
+## Epic 5 — AI reply engine
+
+| Story | Title | Status |
+|---|---|---|
+| [5.1](./5.1.md) | Classification | **Draft** — 🔴 classifying per message and storing per conversation lets a polite message **un-escalate** an angry one. `requires_human` ruled a latch. **AC5 blocked on new PRD Q9** |
+| [5.2](./5.2.md) | Agent and tools | **Draft** — reconciles the 60s agent cap with NFR3's 30s budget: the cap is the abort, ~20s the budget, per-step durations recorded |
+| [5.3](./5.3.md) | Draft generation with citations | **Draft** — 🔴 confidence is the model grading itself and it gates auto-send. **Blocked on new PRD Q10** |
+| [5.4](./5.4.md) | Escalation rules | **Draft** — AC5's "agreed threshold" was already §1.4's 85% and cited nowhere; recall added; two triggers get a floor |
+| [5.5](./5.5.md) | Draft review panel | **Draft** — 🔴 AC5's retained draft stays `proposed`, so Epic 6 auto-sends **two replies**. Adds `superseded` + a partial unique index |
+| [5.6](./5.6.md) | Persona settings and playground | **Draft** — 🔴 "identical tools" lets the playground issue a **real refund**; ruled a non-dispatching sink. Closes traceability F11's NFR4 |
+
+**Thirty-two stories drafted — all of Epics 1, 2, 3, 4 and 5.** None past 1.1 is Approved — each names what it waits on. Epics 6–8 are not drafted. Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
 
 ## Story lifecycle
 

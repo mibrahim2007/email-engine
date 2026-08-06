@@ -137,6 +137,41 @@ const result = await streamText({
 
 Model choice is a tenant setting resolved against an allow-list per plan. The Gateway handles provider failover and reports token/cost per request, which flows into `usage_records`.
 
+#### The playground shares the agent and must not share the dispatcher (ruled 2026-08-06)
+
+FR36 and Story 5.6 AC2 require the playground to use the **identical agent, tools, and knowledge as production**. That wording is right — a playground that behaves differently tests nothing — and taken literally it is dangerous.
+
+`call_tenant_webhook` is a *"tenant-defined action (order status, **refund**)"* against a URL the tenant registered under FR49. **So an admin typing into a screen labelled "test your bot" can issue a real refund against their production order system.** `escalate_to_human` is milder and still wrong: it latches `requires_human` on a conversation that does not exist and raises an FR55 notification for something nobody did.
+
+**And Story 5.6 AC5 makes it adversarial.** The prompt-injection corpus exists to make the agent take unauthorized actions, and AC5 requires running it *in the playground*, one click, as a visible affordance. **The corpus proving the bot cannot be manipulated would fire live webhooks at the tenant's business while proving it** — and AC5's assertion is about the model's *decision*, which can only be checked after the call has left.
+
+**Ruling: the difference goes below the agent, at the dispatcher.**
+
+| Layer | Playground | Production |
+|---|---|---|
+| Agent, prompt, persona, model | identical | identical |
+| Tool definitions and schemas | identical | identical |
+| Knowledge and retrieval | identical | identical |
+| Read-only tools (`search_knowledge_base`, `lookup_customer`) | execute | execute |
+| **Side-effecting** (`call_tenant_webhook`, `escalate_to_human`) | **captured, not dispatched** | dispatched |
+
+The model decides identically and the trace records the decision identically, so AC5's assertion is made against the captured call. **The trace becomes the delivery mechanism**: the playground shows the exact signed payload that *would* have gone out, to the exact registered endpoint — strictly more useful for testing than firing it and reading a `200`.
+
+**Constrain it, do not document it.** The dispatcher takes an explicit mode, the tool registry marks each tool `read-only` or `side-effecting`, and **a test asserts every side-effecting tool is captured in playground mode** — so a sixth tool added later cannot default to dispatching. Same reasoning as `system.ts`'s surface test and the provider-SDK lockfile assertion.
+
+**PRD Story 5.6 AC2 is amended to say this**, because a correct implementation of "identical" is the unsafe one. Third time an absolute's wording was itself the defect, after §10.2's "every repository function" and §13.3's "no deserialization path".
+
+#### The 60-second cap is an abort, not a budget (ruled 2026-08-06)
+
+§10.4 sets `AbortSignal.timeout(60_000)` and PRD Story 5.2 AC2 restates it. **NFR3 gives the whole pipeline 30 seconds at p95** — and §8.1 runs parse → thread resolve → classify (a model call) → retrieve → agent loop → persist in sequence, with **only the agent step carrying a stated budget, twice the end-to-end target.**
+
+Not formally contradictory: a 30s p95 coexists with a 60s ceiling if the tail is thin. **But nothing made that true and nothing measured it.** NFR3 is asserted once, end-to-end, in Story 5.3 AC5; when it fails, no artifact says which step spent the time.
+
+- **The abort stays at 60s.** It exists to stop a hung run; lowering it converts slow drafts into escalations, which is worse.
+- **The agent's working budget is ~20s**, which is what NFR3 implies once classify, retrieve, and persist are accounted for. Crossing it is a signal, not a failure.
+- **Per-step durations are recorded on the draft.** `drafts.tool_calls` is already `jsonb` and already carries per-step data, so this costs a field rather than a table. Without it NFR3 is a number that can only be missed, never diagnosed.
+- **NFR3 is measured from `messages.received_at`**, not from workflow start. The queue wait is part of what the customer experiences, and excluding it measures a system nobody is running.
+
 ### 10.5 Error handling
 
 One error taxonomy, thrown everywhere, translated at the boundary:

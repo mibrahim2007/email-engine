@@ -12,16 +12,16 @@
 
 1. Every inbound message is classified into intent, sentiment, urgency, language, PII detected, and requires-human.
 2. Classification uses structured output with a validated schema and runs on a fast model tier.
-3. Results are persisted on the conversation and shown as badges in the inbox.
+3. Classification is persisted **per message**, with the conversation carrying a derived summary — first intent, most-negative sentiment, maximum urgency, and a `requires_human` that latches. Shown as badges in the inbox. *(Amended 2026-08-06 drafting Story 5.1: FR30 classifies every message and `conversations` holds one of each field, so a later polite message silently un-escalated an earlier angry one. Architecture §6.7a.)*
 4. Classification failure marks the message for human handling rather than blocking the pipeline.
-5. Accuracy against a labeled set meets the agreed threshold before drafting is enabled.
+5. Accuracy against a labeled set meets the agreed threshold before drafting is enabled — **measured per field, with `requires_human` recall weighted above intent accuracy.** *(The threshold itself is **§8 question 9**, opened 2026-08-06: unlike Story 5.4's, it exists in no document.)*
 
 ---
 
 **Story 5.2 — Agent and tools**
 *As a developer, I want a tool-calling agent, so that replies can use knowledge and data rather than only the prompt.*
 
-1. The agent exposes `search_knowledge_base`, `lookup_customer`, `call_tenant_webhook`, and `escalate_to_human`.
+1. The agent exposes `search_knowledge_base`, `lookup_customer`, `call_tenant_webhook`, `escalate_to_human`, and the terminal `propose_reply`. *(Corrected 2026-08-06: Architecture §4.6 has always listed five. `propose_reply` is how the draft body, citations, and confidence leave the loop, and it is what makes AC5's "ends cleanly" detectable.)*
 2. The loop is capped at 8 tool steps and 60 seconds of wall clock.
 3. All model access goes through Vercel AI Gateway; no provider SDK is present in the dependency tree.
 4. Tool inputs and outputs are recorded for every run.
@@ -47,7 +47,7 @@
 2. An escalated conversation is flagged, sorted up, and raises an in-app notification (FR55). *(Amended 2026-08-03: previously "optionally notifies a channel", which implied a Slack integration no story built. A tenant wanting a channel uses the signed `conversation.escalated` webhook from FR48 — see §1.5.)*
 3. The escalation reason is stated in one plain sentence in the conversation timeline.
 4. Admins can configure which triggers are active and their thresholds.
-5. Escalation precision against a labeled set meets the agreed threshold.
+5. Escalation precision against a labeled set meets **§1.4's ≥ 85%**, with **recall reported alongside it**. *(Clarified 2026-08-06: the threshold was already agreed in §1.4 and cited nowhere. Recall added because precision is optimised by flagging almost nothing, and the failure this story prevents is a **missed** escalation.)*
 6. A simulated model-provider outage produces **queued drafts and human review, never dropped mail** (NFR19), verified by a test that fails the Gateway and asserts the conversation still appears with a stated reason. *(Added 2026-08-04 per traceability finding F11 — the degraded path was required and never exercised.)*
 
 ---
@@ -67,7 +67,7 @@
 *As an admin, I want to shape and test the bot's voice, so that I trust it before it speaks for us.*
 
 1. Persona settings cover tone, formality, signature, prohibited topics, and standard disclaimers.
-2. The playground streams responses using the identical agent, tools, and knowledge as production.
+2. The playground streams responses using the identical agent, tools, and knowledge as production, **with side-effecting tools captured rather than dispatched**. *(Amended 2026-08-06: read literally, "identical" lets an admin testing the bot issue a real refund through `call_tenant_webhook` — and AC5's injection corpus would fire live webhooks while proving the bot cannot be manipulated. The difference sits below the agent, at the dispatcher: Architecture §10.4.)*
 3. The tool-call trace is visible per response, including retrieved chunks and scores.
 4. Persona changes take effect in the playground immediately without a deploy.
 5. A prompt-injection corpus in the playground produces no unauthorized tool call and no data disclosure.

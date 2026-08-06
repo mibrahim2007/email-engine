@@ -54,10 +54,10 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR27 | Re-index on demand and nightly, skip unchanged | 4.3 (nightly), 4.5 (on demand) | ✅ |
 | FR28 | Direct KB search showing chunks and scores | 4.5 | ✅ |
 | FR29 | Hybrid semantic + keyword, tenant-scoped | 4.4 | ✅ |
-| FR30 | Classify intent, sentiment, urgency, language, PII | 5.1 | ✅ |
+| FR30 | Classify intent, sentiment, urgency, language, PII | 5.1 | ✅ — **per message**, per §6.7a |
 | FR31 | Draft every classified message not needing a human | 5.3 | ✅ |
-| FR32 | Draft carries confidence, citations, model, tool calls | 5.3 AC2 | ✅ |
-| FR33 | Agent tools: KB, contact, tenant webhook, escalate | 5.2 AC1 | ✅ |
+| FR32 | Draft carries confidence, citations, model, tool calls | 5.3 AC2 | ⚠ **what `confidence` is, is §8 Q10** |
+| FR33 | Agent tools: KB, contact, tenant webhook, escalate | 5.2 AC1 | ✅ — **five tools**; `propose_reply` was missing from the epic |
 | FR34 | Escalate on language, PII, sentiment, low confidence | 5.4 AC1 | ✅ |
 | FR35 | Tenant persona configuration | 5.6 AC1 | ✅ |
 | FR36 | Playground using the production agent | 5.6 AC2–3 | ✅ |
@@ -96,7 +96,7 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 | NFR1 | LCP < 1.8 s, INP < 200 ms p75 | **1.6 AC6** gates a Lighthouse lab proxy; the p75 field figure is observed via Speed Insights | ✅ corrected 08-05 |
 | NFR2 | Conversation detail < 300 ms p95 | **3.3 AC6** (3.1 AC5 covers the list) | ✅ F11 fixed |
 | NFR3 | Inbound → draft-ready < 30 s p95 | 5.3 AC5 | ✅ |
-| NFR4 | Playground first token < 1.5 s p95 | — | ⚠️ open |
+| NFR4 | Playground first token < 1.5 s p95 | **5.6 AC2** | ✅ **F11 fully closed 2026-08-06** |
 | NFR5 | Retrieval < 150 ms p95 | 4.4 AC4 | ⚠ **on a multi-tenant fixture only** — §6.8f |
 | NFR6 | Client JS < 200 KB gzipped | **1.6 AC6** — CI fails the build above the ceiling | ✅ corrected 08-05 |
 | NFR7 | 500 tenants × 50 k conversations | 8.5 AC2, **4.4 AC4** | ✅ |
@@ -115,7 +115,7 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 | NFR20 | Point-in-time recovery, last 7 days | **1.2 AC7** — window set and a restore exercised | ✅ F10 fixed |
 | NFR21 | GDPR export/erasure within 30 days | 8.4 AC3 | ✅ |
 | NFR22 | Data region a tenant attribute | 8.4 AC5 + `region` column (F6) | ✅ |
-| NFR23 | Every error actionable; no silent AI failure | 8.3 AC5 | ✅ |
+| NFR23 | Every error actionable; no silent AI failure | 8.3 AC5, **5.1 AC4, 5.3, 5.4 AC6** | ✅ |
 | NFR24 | WCAG 2.1 AA on authenticated screens | 1.6 AC4 (shell only) + FE Spec §11 | ⚠️ partial |
 | NFR25 | Single-vendor serverless, no self-managed infra | Architecture §6.8 (F1 ruling) | ✅ |
 
@@ -123,7 +123,7 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 
 ## New findings — all resolved 2026-08-04
 
-> Each finding below is followed by what was done. **One remains open and deliberately so:** NFR4's playground first-token target has no verifying criterion, and adding one is premature until Story 5.6 exists.
+> Each finding below is followed by what was done. **All are now closed** — NFR4 was held open until Story 5.6 existed, and it was drafted on 2026-08-06 with the first-token target as an explicit criterion rather than a citation.
 
 ### F8 — FR53 has three consumers and no builder 🟡
 
@@ -159,7 +159,7 @@ It is also nearly free now: Neon provides PITR, and the retention window is a se
 
 ### F11 — Five NFRs have no verifying acceptance criterion 🟡
 
-> ✅ **Fixed:** NFR2 → Story 3.3 AC6; NFR19 → Story 5.4 AC6; NFR1 and NFR6 now say in the requirement that the front-end spec's CI budgets verify them; NFR17 reclassified as an operational SLO. NFR4 left open until Story 5.6 exists.
+> ✅ **Fixed:** NFR2 → Story 3.3 AC6; NFR19 → Story 5.4 AC6; NFR1 and NFR6 now say in the requirement that the front-end spec's CI budgets verify them; NFR17 reclassified as an operational SLO. **NFR4 → Story 5.6 AC2, closed 2026-08-06** — and closed with an assertion rather than a citation, which is the lesson F11 itself taught.
 
 | NFR | Gap |
 |---|---|

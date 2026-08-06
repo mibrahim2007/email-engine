@@ -27,7 +27,22 @@ An AC phrased as a rule is often a concurrency requirement wearing a validation 
 > **Story 1.5 AC4** — "the last remaining owner cannot be removed" implemented as a count check lets two admins each demote a different owner and leave zero.
 > **Front-End Spec §5.1** — send-undo cancelling a `pending` outbox row races a drain that runs every 30 seconds.
 
-Ask: *what happens if two of these arrive at once?* And note that a unique index enforces **at most one**, never **at least one**.
+Ask: *what happens if two of these arrive at once?* And note that a unique index enforces **at most one**, never **at least one** — Story 5.5's partial index on live drafts is the case where that is exactly the tool, and Story 1.5's last-owner rule is the case where it is useless.
+
+**The sibling shape: a value that a later, individually-correct write may lower is a state machine, not a field.**
+
+> **Story 5.1** — classification runs per message and `conversations` holds one `requires_human`. Message 2 is angry and escalates; message 3 says "never mind, thanks" and its classification writes the flag back to false. **The conversation silently leaves the escalation queue and nobody ever read message 2** — worse the more polite the customer is. `requires_human` is a latch: a classifier may raise it, only a human may clear it.
+
+Third instance, after the last-owner rule and the send-undo race. The tell is a field written by more than one event where one of those events means *something must happen*.
+
+### ☐ A threshold that exists and is not cited behaves like one that does not exist
+
+The reverse of the citation trap, and it costs a story an open question it does not need.
+
+> **Story 5.4 AC5** — "escalation precision meets the agreed threshold". It **was** agreed: PRD §1.4 sets ≥ 85%. Three sections away, in a success-metrics table nobody drafting a story would open, so the AC reads as blocked on a decision already made.
+> **Story 5.1 AC5** — identical wording, and that one genuinely has no number anywhere. Same sentence, opposite problems.
+
+Before raising an open question, grep the success metrics. And when a bar exists, check it is the *right* bar: **precision alone is optimised by flagging nothing**, so 5.4 reports recall beside it — the failure that story prevents is a *missed* escalation, which precision cannot see.
 
 ### ☐ Distinguish presentation from enforcement
 
@@ -110,6 +125,22 @@ Criteria are written per tenant. **The NFRs are written for the whole system**, 
 Two questions: *what fraction of this table belongs to one tenant at NFR-scale?* and *does any criterion here get easier when the feature stops working?* The second is the sharper one — a target that a failure satisfies is not measuring the thing it names.
 
 And a general form worth keeping: **a correctness mechanism and a performance mechanism can each be right and compose into something that is neither.** The tell is a filter the query deliberately does not express — if the planner cannot see the predicate, no index can be chosen for it.
+
+### ☐ A guarantee protects the table it is written on, and nothing above it
+
+Check where the *duplicate* is created, not where the write is serialised.
+
+> **Story 5.5 AC5.** Regenerate retains the prior draft, which was never approved or rejected, so it stays `proposed` — **two live drafts on one conversation.** FR42's auto-send drains `proposed` drafts above a threshold and finds both, so **the customer gets two replies.** Every exactly-once mechanism held: `outbound_messages` correctly sent each of two legitimate rows exactly once. The defect is one table upstream of the guarantee.
+
+Ask: *what selects this row later, and can there be two of them?* The fix is usually a partial unique index, so the invariant is structural rather than a convention held in an `ORDER BY` that one repository function can omit.
+
+### ☐ "Identical to production" is a hazard wherever production has side effects
+
+A test surface asked to behave *exactly* like the real one inherits the real one's consequences, and the requirement's own wording is what makes a correct implementation dangerous.
+
+> **Story 5.6 AC2** — the playground uses "the identical agent, tools, and knowledge as production". `call_tenant_webhook` is a tenant-registered action — *order status, **refund***. So an admin typing into a screen labelled "test your bot" can issue a real refund. **And AC5 requires running the prompt-injection corpus there**, so the suite proving the bot cannot be manipulated would fire live webhooks while proving it.
+
+Split the tools by whether they *observe* or *act*, and put the difference **below** the layer the requirement is about — the agent, prompt, schemas, and trace stay identical; the dispatcher does not dispatch. Then mark each tool in a registry and **test that every side-effecting one is captured**, so the sixth tool cannot default to firing.
 
 ### ☐ "Whichever ships first" is not an owner
 

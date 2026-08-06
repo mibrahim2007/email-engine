@@ -7,7 +7,7 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 
 | # | Question | Blocks | Owner |
 |---|---|---|---|
-| 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? | Epic 6 | PM, after Epic 5 eval data |
+| 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? **Blocked by question 10** — choosing between two thresholds presumes the number is calibrated, and today it is a self-report | Epic 6 | PM, after Epic 5 eval data **and question 10** |
 | ~~2~~ | ~~Data residency — single region now, or tenant→region routing designed up front?~~ **Closed 2026-08-04: single region.** The attribute is the seam ([[Email Engine Architecture]] §6.8b); the routing is not built, because it would change `withTenant()` before there is a customer to justify it. Reasoning and the revisit trigger in §6.8d | ~~Epic 8~~ | Architect ✓ |
 | 3 | Model choice — tenant-selectable or a plan attribute we control? | Epic 5, pricing | PM |
 | 4 | Pricing shape — per seat, per message, or hybrid? | Epic 8 | PM |
@@ -15,6 +15,8 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 | ~~5~~ | ~~Attachment malware scanning vendor~~ **Closed 2026-08-04: none.** The question was unanswerable as posed — it asked *which vendor*, and the answer is that scanning is deferred and containment ships instead (FR57). Reasoning in [[Email Engine Architecture]] §13.3 | ~~Epic 2~~ | Architect ✓ |
 | ~~6~~ | ~~Does MVP need a shared team view of who is currently viewing a conversation?~~ **Resolved 2026-08-03: no** — assignment plus a send-time conflict check. Reasoning and revisit criteria in [[Email Engine Front-End Spec]] §13. | ~~Epic 3~~ | UX Expert ✓ |
 | 7 | Retrieval quality bar — what recall@8 gates Epic 5? **The bar must be set against a *multi-tenant* measurement** — see §8.2 | Epic 4 → 5 | Architect + PM |
+| **10** | **What is the confidence number?** *(Raised 2026-08-06 drafting Story 5.3.)* It is currently the model's own self-report, and it gates the meter, escalation, **auto-send**, and question 1 above. See §8.3 | **Story 5.3 AC3 has no mechanism; Epic 6 inherits the choice** | **PM + Architect** |
+| 9 | Classification accuracy bar — what threshold gates enabling drafting? *(Raised 2026-08-06 drafting Story 5.1: unlike question 7's, this number exists in no document and nobody has been asked to agree it.)* Needs answering **per field**, with `requires_human` recall weighted above intent accuracy | Epic 5 | PM + Architect |
 
 ---
 
@@ -56,5 +58,41 @@ Architecture §6.8f: RLS is a filter, and with an approximate index **filtering 
 **Recommendation to the PM and Architect: set the bar on the multi-tenant measurement, and require both numbers to be reported.** The gap between them is the value of §6.8f's mitigation, and it is worth watching over time — if it widens as the fixture grows, that is the signal that partitioning `kb_chunks` has stopped being optional.
 
 Story 4.4 builds the labelled set and reports both. **It deliberately does not set the bar** — a Dev agent can run the measurement and cannot decide whether the result is good enough.
+
+
+### 8.3 Analysis for question 10 — what the confidence number is
+
+Architect input, 2026-08-06, raised drafting Story 5.3.
+
+**Today the number is the model's opinion of its own work.** `propose_reply` emits body, citations, and confidence in one call, from one context, and Story 5.3 AC3's *"ungrounded claims lower the confidence"* is an instruction in a prompt whose compliance nothing checks.
+
+**What rests on it:**
+
+| Consumer | Uses confidence to |
+|---|---|
+| Front-End Spec §4.1 | Four redundant encodings, band labels, and the **threshold marker** — described there as "the trust-building device" |
+| Story 5.4 AC1 | Escalate below a floor |
+| **FR42 / Epic 6** | **Send with no human review above a tenant-set threshold** |
+| **§8 Q1** | **Choose between defaulting to 0.9 and 0.85** |
+
+**Q1 cannot be answered while Q10 is open.** Deciding between 0.85 and 0.9 assumes a 0.87 draft is reliably worse than a 0.92 one — across tenants, intents, weeks, and a model version changing underneath. A self-report has none of those properties, and models are known to report high confidence in precisely the case this product exists to catch: a fluent, plausible answer to a question the knowledge base does not cover.
+
+**The failure is exact.** Auto-send armed at 0.9. A customer asks something the KB does not answer. The model writes a confident, well-formed, wrong reply, scores itself 0.94, and it sends with nobody looking. Every supervision surface worked — the popover shows the chunks it did retrieve, the meter shows 94, the trace shows the calls. **Nothing in the system disagrees with itself.**
+
+| Option | What it is | Cost |
+|---|---|---|
+| **A — self-report** *(as currently specified)* | The model's own number | Free. Uncalibrated, and **unfalsifiable from inside the system** |
+| **B — mechanical groundedness** | Fraction of the draft's factual sentences carrying a resolvable citation, computed in code | Cheap, deterministic, explainable. Measures grounding, **not correctness** |
+| **C — a second-model check** | A cheap fast-tier call scoring each claim against the chunks it cites | One extra call per draft. Independent of the drafting context |
+
+**Recommendation: B ships as the confidence, with A recorded beside it and unused by any gate.**
+
+Confidence becomes computed rather than claimed; an agent can be told what it means in one sentence — *"84% of this reply's factual sentences are backed by a source you can click"* — and that is the number §4.1's meter should carry, because the meter's job is to make grounding legible rather than to relay a mood.
+
+Keeping A as a second column costs nothing and gives the project the one signal it cannot otherwise get: **the gap between what the model claims and what it can support.** That gap is the eval metric worth watching over a model upgrade.
+
+**C stays live for Epic 6**, where auto-send makes the stakes real, and it is best priced against Story 5.1's eval data rather than now.
+
+**Story 5.3 AC3 is not implementable until this is decided** — "lower the confidence" names no mechanism — and Epic 6 inherits whatever is chosen, so the decision is cheaper now than after FR42 is built on it.
 
 ---

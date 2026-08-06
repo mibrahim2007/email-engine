@@ -645,16 +645,16 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 
 1. Every inbound message is classified into intent, sentiment, urgency, language, PII detected, and requires-human.
 2. Classification uses structured output with a validated schema and runs on a fast model tier.
-3. Results are persisted on the conversation and shown as badges in the inbox.
+3. Classification is persisted **per message**, with the conversation carrying a derived summary — first intent, most-negative sentiment, maximum urgency, and a `requires_human` that latches. Shown as badges in the inbox. *(Amended 2026-08-06 drafting Story 5.1: FR30 classifies every message and `conversations` holds one of each field, so a later polite message silently un-escalated an earlier angry one. Architecture §6.7a.)*
 4. Classification failure marks the message for human handling rather than blocking the pipeline.
-5. Accuracy against a labeled set meets the agreed threshold before drafting is enabled.
+5. Accuracy against a labeled set meets the agreed threshold before drafting is enabled — **measured per field, with `requires_human` recall weighted above intent accuracy.** *(The threshold itself is **§8 question 9**, opened 2026-08-06: unlike Story 5.4's, it exists in no document.)*
 
 ---
 
 **Story 5.2 — Agent and tools**
 *As a developer, I want a tool-calling agent, so that replies can use knowledge and data rather than only the prompt.*
 
-1. The agent exposes `search_knowledge_base`, `lookup_customer`, `call_tenant_webhook`, and `escalate_to_human`.
+1. The agent exposes `search_knowledge_base`, `lookup_customer`, `call_tenant_webhook`, `escalate_to_human`, and the terminal `propose_reply`. *(Corrected 2026-08-06: Architecture §4.6 has always listed five. `propose_reply` is how the draft body, citations, and confidence leave the loop, and it is what makes AC5's "ends cleanly" detectable.)*
 2. The loop is capped at 8 tool steps and 60 seconds of wall clock.
 3. All model access goes through Vercel AI Gateway; no provider SDK is present in the dependency tree.
 4. Tool inputs and outputs are recorded for every run.
@@ -680,7 +680,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 2. An escalated conversation is flagged, sorted up, and raises an in-app notification (FR55). *(Amended 2026-08-03: previously "optionally notifies a channel", which implied a Slack integration no story built. A tenant wanting a channel uses the signed `conversation.escalated` webhook from FR48 — see §1.5.)*
 3. The escalation reason is stated in one plain sentence in the conversation timeline.
 4. Admins can configure which triggers are active and their thresholds.
-5. Escalation precision against a labeled set meets the agreed threshold.
+5. Escalation precision against a labeled set meets **§1.4's ≥ 85%**, with **recall reported alongside it**. *(Clarified 2026-08-06: the threshold was already agreed in §1.4 and cited nowhere. Recall added because precision is optimised by flagging almost nothing, and the failure this story prevents is a **missed** escalation.)*
 6. A simulated model-provider outage produces **queued drafts and human review, never dropped mail** (NFR19), verified by a test that fails the Gateway and asserts the conversation still appears with a stated reason. *(Added 2026-08-04 per traceability finding F11 — the degraded path was required and never exercised.)*
 
 ---
@@ -700,7 +700,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 *As an admin, I want to shape and test the bot's voice, so that I trust it before it speaks for us.*
 
 1. Persona settings cover tone, formality, signature, prohibited topics, and standard disclaimers.
-2. The playground streams responses using the identical agent, tools, and knowledge as production.
+2. The playground streams responses using the identical agent, tools, and knowledge as production, **with side-effecting tools captured rather than dispatched**. *(Amended 2026-08-06: read literally, "identical" lets an admin testing the bot issue a real refund through `call_tenant_webhook` — and AC5's injection corpus would fire live webhooks while proving the bot cannot be manipulated. The difference sits below the agent, at the dispatcher: Architecture §10.4.)*
 3. The tool-call trace is visible per response, including retrieved chunks and scores.
 4. Persona changes take effect in the playground immediately without a deploy.
 5. A prompt-injection corpus in the playground produces no unauthorized tool call and no data disclosure.
@@ -910,7 +910,7 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 
 | # | Question | Blocks | Owner |
 |---|---|---|---|
-| 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? | Epic 6 | PM, after Epic 5 eval data |
+| 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? **Blocked by question 10** — choosing between two thresholds presumes the number is calibrated, and today it is a self-report | Epic 6 | PM, after Epic 5 eval data **and question 10** |
 | ~~2~~ | ~~Data residency — single region now, or tenant→region routing designed up front?~~ **Closed 2026-08-04: single region.** The attribute is the seam ([[Email Engine Architecture]] §6.8b); the routing is not built, because it would change `withTenant()` before there is a customer to justify it. Reasoning and the revisit trigger in §6.8d | ~~Epic 8~~ | Architect ✓ |
 | 3 | Model choice — tenant-selectable or a plan attribute we control? | Epic 5, pricing | PM |
 | 4 | Pricing shape — per seat, per message, or hybrid? | Epic 8 | PM |
@@ -918,6 +918,8 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 | ~~5~~ | ~~Attachment malware scanning vendor~~ **Closed 2026-08-04: none.** The question was unanswerable as posed — it asked *which vendor*, and the answer is that scanning is deferred and containment ships instead (FR57). Reasoning in [[Email Engine Architecture]] §13.3 | ~~Epic 2~~ | Architect ✓ |
 | ~~6~~ | ~~Does MVP need a shared team view of who is currently viewing a conversation?~~ **Resolved 2026-08-03: no** — assignment plus a send-time conflict check. Reasoning and revisit criteria in [[Email Engine Front-End Spec]] §13. | ~~Epic 3~~ | UX Expert ✓ |
 | 7 | Retrieval quality bar — what recall@8 gates Epic 5? **The bar must be set against a *multi-tenant* measurement** — see §8.2 | Epic 4 → 5 | Architect + PM |
+| **10** | **What is the confidence number?** *(Raised 2026-08-06 drafting Story 5.3.)* It is currently the model's own self-report, and it gates the meter, escalation, **auto-send**, and question 1 above. See §8.3 | **Story 5.3 AC3 has no mechanism; Epic 6 inherits the choice** | **PM + Architect** |
+| 9 | Classification accuracy bar — what threshold gates enabling drafting? *(Raised 2026-08-06 drafting Story 5.1: unlike question 7's, this number exists in no document and nobody has been asked to agree it.)* Needs answering **per field**, with `requires_human` recall weighted above intent accuracy | Epic 5 | PM + Architect |
 
 ---
 
@@ -959,6 +961,42 @@ Architecture §6.8f: RLS is a filter, and with an approximate index **filtering 
 **Recommendation to the PM and Architect: set the bar on the multi-tenant measurement, and require both numbers to be reported.** The gap between them is the value of §6.8f's mitigation, and it is worth watching over time — if it widens as the fixture grows, that is the signal that partitioning `kb_chunks` has stopped being optional.
 
 Story 4.4 builds the labelled set and reports both. **It deliberately does not set the bar** — a Dev agent can run the measurement and cannot decide whether the result is good enough.
+
+
+### 8.3 Analysis for question 10 — what the confidence number is
+
+Architect input, 2026-08-06, raised drafting Story 5.3.
+
+**Today the number is the model's opinion of its own work.** `propose_reply` emits body, citations, and confidence in one call, from one context, and Story 5.3 AC3's *"ungrounded claims lower the confidence"* is an instruction in a prompt whose compliance nothing checks.
+
+**What rests on it:**
+
+| Consumer | Uses confidence to |
+|---|---|
+| Front-End Spec §4.1 | Four redundant encodings, band labels, and the **threshold marker** — described there as "the trust-building device" |
+| Story 5.4 AC1 | Escalate below a floor |
+| **FR42 / Epic 6** | **Send with no human review above a tenant-set threshold** |
+| **§8 Q1** | **Choose between defaulting to 0.9 and 0.85** |
+
+**Q1 cannot be answered while Q10 is open.** Deciding between 0.85 and 0.9 assumes a 0.87 draft is reliably worse than a 0.92 one — across tenants, intents, weeks, and a model version changing underneath. A self-report has none of those properties, and models are known to report high confidence in precisely the case this product exists to catch: a fluent, plausible answer to a question the knowledge base does not cover.
+
+**The failure is exact.** Auto-send armed at 0.9. A customer asks something the KB does not answer. The model writes a confident, well-formed, wrong reply, scores itself 0.94, and it sends with nobody looking. Every supervision surface worked — the popover shows the chunks it did retrieve, the meter shows 94, the trace shows the calls. **Nothing in the system disagrees with itself.**
+
+| Option | What it is | Cost |
+|---|---|---|
+| **A — self-report** *(as currently specified)* | The model's own number | Free. Uncalibrated, and **unfalsifiable from inside the system** |
+| **B — mechanical groundedness** | Fraction of the draft's factual sentences carrying a resolvable citation, computed in code | Cheap, deterministic, explainable. Measures grounding, **not correctness** |
+| **C — a second-model check** | A cheap fast-tier call scoring each claim against the chunks it cites | One extra call per draft. Independent of the drafting context |
+
+**Recommendation: B ships as the confidence, with A recorded beside it and unused by any gate.**
+
+Confidence becomes computed rather than claimed; an agent can be told what it means in one sentence — *"84% of this reply's factual sentences are backed by a source you can click"* — and that is the number §4.1's meter should carry, because the meter's job is to make grounding legible rather than to relay a mood.
+
+Keeping A as a second column costs nothing and gives the project the one signal it cannot otherwise get: **the gap between what the model claims and what it can support.** That gap is the eval metric worth watching over a model upgrade.
+
+**C stays live for Epic 6**, where auto-send makes the stakes real, and it is best priced against Story 5.1's eval data rather than now.
+
+**Story 5.3 AC3 is not implementable until this is decided** — "lower the confidence" names no mechanism — and Epic 6 inherits whatever is chosen, so the decision is cheaper now than after FR42 is built on it.
 
 ---
 
