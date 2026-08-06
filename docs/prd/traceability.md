@@ -50,8 +50,8 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR23 | Keyboard navigation and command palette | 3.6 AC2–3 | ✅ |
 | FR24 | Contact panel with history and custom fields | 3.4 AC4 | ✅ |
 | FR25 | Add sources: URL, file, text, FAQ | 4.1 | ✅ |
-| FR26 | Extract, chunk, embed; per-source status | 4.2, 4.3 | ✅ |
-| FR27 | Re-index on demand and nightly, skip unchanged | 4.3 | ✅ |
+| FR26 | Extract, chunk, embed; per-source status | 4.1, 4.2, 4.3 | ✅ |
+| FR27 | Re-index on demand and nightly, skip unchanged | 4.3 (nightly), 4.5 (on demand) | ✅ |
 | FR28 | Direct KB search showing chunks and scores | 4.5 | ✅ |
 | FR29 | Hybrid semantic + keyword, tenant-scoped | 4.4 | ✅ |
 | FR30 | Classify intent, sentiment, urgency, language, PII | 5.1 | ✅ |
@@ -97,9 +97,9 @@ This is where the PRD's second claim — "reflected in acceptance criteria, not 
 | NFR2 | Conversation detail < 300 ms p95 | **3.3 AC6** (3.1 AC5 covers the list) | ✅ F11 fixed |
 | NFR3 | Inbound → draft-ready < 30 s p95 | 5.3 AC5 | ✅ |
 | NFR4 | Playground first token < 1.5 s p95 | — | ⚠️ open |
-| NFR5 | Retrieval < 150 ms p95 | 4.4 AC4 | ✅ |
+| NFR5 | Retrieval < 150 ms p95 | 4.4 AC4 | ⚠ **on a multi-tenant fixture only** — §6.8f |
 | NFR6 | Client JS < 200 KB gzipped | **1.6 AC6** — CI fails the build above the ceiling | ✅ corrected 08-05 |
-| NFR7 | 500 tenants × 50 k conversations | 8.5 AC2 | ✅ |
+| NFR7 | 500 tenants × 50 k conversations | 8.5 AC2, **4.4 AC4** | ✅ |
 | NFR8 | 50 inbound messages/second | 8.5 AC1 | ✅ |
 | NFR9 | No full-table scans on tenant data | 8.5 AC2 | ✅ |
 | NFR10 | Isolation enforced at the database layer | 1.3 | ✅ |
@@ -173,6 +173,16 @@ It is also nearly free now: Neon provides PITR, and the retention window is a se
 NFR1 and NFR6 are genuinely covered — by the Front-End Spec, which the PRD's checklist did not consider. The honest correction is to PRD §7's claim rather than to the requirements: NFRs are reflected in acceptance criteria **or in the front-end spec's CI budgets**, and three of them are reflected nowhere.
 
 **Fix:** point NFR1/NFR6 at the FE spec explicitly; add ACs for NFR2 and NFR19; reclassify NFR17 as an operational SLO rather than a testable requirement. **Owner: PM.**
+
+### T-1 — The matrix disagreed with the PRD and both showed green *(2026-08-06)*
+
+FR27 has always read **"re-index on demand and nightly, skip unchanged"** and this table has always mapped it to **Story 4.3**. PRD Epic 4 put the nightly cron in **Story 4.5**. Architecture §12 declared the route and named no story; §10.2 assigned the enumerator to 4.3.
+
+So the matrix and the epic named different owners for the same half of one requirement, **for three days, with a ✅ next to it.** Nothing surfaced it, because this table asks *does some story deliver this FR* and the answer was yes. **A requirement split across two stories satisfies a requirement→story map even when the two stories disagree about which one does the work.**
+
+Resolved by moving the cron to 4.3 AC6 (see the epic). The row above now names both halves explicitly, which is the cheap version of the fix: **when an FR contains the word "and", map each half.**
+
+This is the matrix's third recorded blind spot, alongside gaps that live *between* two stories and citations that read like owners.
 
 ---
 

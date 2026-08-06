@@ -15,6 +15,7 @@
 | Email HTML | `mailparser` → DOMPurify allow-list → rendered in a sandboxed iframe with a strict CSP; remote images proxied and off by default |
 | Prompt injection | Retrieved KB text and inbound email bodies are wrapped in delimited untrusted blocks; the system prompt states tool use is never authorized by message content; `call_tenant_webhook` requires a pre-registered URL and never accepts a model-supplied host |
 | Attachments | Size cap, type allow-list, true-type check against magic bytes, download-only from a non-app origin. **No malware scanning in MVP** — see §13.3 |
+| Knowledge sources | *(added 2026-08-06, Story 4.1.)* Uploads reuse FR57's magic-byte true-type check and executable refusal — **the same helper, not a second implementation.** URL sources fetch `http`/`https` only, refuse loopback, link-local and RFC-1918 hosts **re-checked after every redirect**, under size and time caps, and never echo the fetched response into an error an admin can read. This is the one file path in the product that is *parsed* rather than stored — see §13.3 |
 | Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls |
 | Audit | Append-only `audit_events`; no `UPDATE`/`DELETE` grant to `app_user` |
 | Headers | CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` via `next.config.ts` |
@@ -54,7 +55,11 @@ The table promising a control that does not exist is worse than the gap. §13.1 
 **Why the residual risk is narrow.** The attachment never executes anywhere we control:
 
 - It is **never rendered inline** — download only, from Vercel Blob, a different origin to the app.
-- It is **never parsed by the AI.** §6.4's retrieval reads `kb_chunks`; the agent's tools do not open attachments. There is no deserialization path from a hostile file into the model.
+- It is **never parsed by the AI.** §6.4's retrieval reads `kb_chunks`; the agent's tools do not open attachments. No attachment becomes a `kb_chunk`, so there is no deserialization path from an *emailed* file into the model.
+
+  > **Scoped 2026-08-06, drafting Story 4.1.** This bullet previously ended "there is no deserialization path from a hostile file into the model" with no qualifier, which read as a property of the system. It is a property of the **attachment** path, and it stays true. Epic 4 builds a second file path deliberately — an uploaded PDF *is* fetched, parsed, and turned into retrievable context the agent reads — with its own controls in Story 4.1 rather than this exemption. Left absolute, the sentence stops being true the day 4.1 merges, in the table a buyer's security reviewer reads.
+  >
+  > The two paths differ in threat, not just in plumbing: an admin uploading their own handbook is not a stranger emailing an executable. **But Story 4.1's URL source type is not admin-authored content at all** — it is a server-side fetch of an address the tenant names, landing in the same extractor — so that mitigation covers one of the two source types and not the other. NFR14 already places "retrieved documents" inside the threat model; this bullet is where the architecture had them outside it.
 - It reaches **only the tenant's own agents**, never third parties, and only via a signed expiring URL.
 
 What remains is an agent choosing to download and open a file a stranger emailed them — which is true of the mailbox they already have, with or without this product. **Detection is not what protects them; containment and honest labelling are.** Those cost nothing.

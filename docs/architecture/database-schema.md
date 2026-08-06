@@ -395,6 +395,36 @@ Story 2.8 bounds backfill to `[connected_at − 30 days, connected_at)` so it ca
 
 > **The general form is worth keeping.** A timestamp that means "when this row was created" and a timestamp that means "when this thing last started" coincide until the thing restarts — and reusing one for the other is a bug that cannot be found by testing the happy path, only by asking what happens the second time.
 
+### 6.8f RLS post-filters an approximate index, so §6.4's semantic half returns nothing at scale (ruled 2026-08-06)
+
+Found drafting Story 4.4, comparing Epic 4's requirements to Epic 1's design. **§6.4 is correct as written and stops working somewhere between the first tenant and the five hundredth.**
+
+**With an approximate index, filtering is applied after the index is scanned.** pgvector documents it plainly: with `hnsw.ef_search` at its default of 40, a condition matching 10% of rows leaves about 4 rows. An RLS policy is a filter — `USING (tenant_id = current_tenant_id())` is applied to tuples HNSW has already returned, and cannot restrict which region of the graph is searched. §6.4's deliberate absence of a `tenant_id` predicate, which is what makes it correct, is also what leaves the planner nothing to narrow with.
+
+At NFR7's scale — 500 tenants × 5,000 chunks = 2.5M rows, one tenant holding 0.2% — the `semantic` CTE asks for `LIMIT 30` and expected survivors are **40 × 0.002 ≈ 0.08 rows.**
+
+**Nothing errors.** The `LEFT JOIN`s and `WHERE s.id IS NOT NULL OR k.id IS NOT NULL` behave exactly as written, RRF fuses one input instead of two, and **hybrid retrieval silently becomes keyword-only.** FR29 reads as satisfied because both halves ran. NFR5's 150ms budget is *easier* to hit, because the expensive half found nothing — **the performance target rewards the failure.** Downstream, Epic 5 drafts against whatever literal keyword overlap survives, with citations, confidence, and a tool trace that all look normal.
+
+**No acceptance criterion in Epic 4 could catch it.** Every one measures a single tenant, where that tenant is 100% of the table, RLS filters nothing, and 40 comfortably serves 30. The defect is a function of tenant count, so it ships green and worsens with every customer added.
+
+**Ruling — iterative index scans, set transaction-locally in `withTenant()`:**
+
+```sql
+SET LOCAL hnsw.iterative_scan = strict_order;
+SET LOCAL hnsw.max_scan_tuples = 40000;
+SET LOCAL hnsw.ef_search = 200;
+```
+
+pgvector 0.8 (the pinned version) added iterative scans for exactly this: the index is scanned further until enough rows survive filtering. `strict_order` and not `relaxed_order`, because §6.4 takes `LIMIT 30` from a distance ordering and feeds `row_number()` into RRF — relaxed order permits the wrong 30 to be taken, corrupting the rank input the fusion is computed from. `SET LOCAL` for the same reason `app.tenant_id` is transaction-local: it must not leak across pooled connections.
+
+**Iterative scan is bounded, so it narrows the window rather than closing it.** When the semantic CTE returns zero rows against a non-empty knowledge base, that is an observable event and must be logged — it is the only signal separating "hybrid retrieval running" from "hybrid retrieval reporting".
+
+**The structural fix is partitioning, and it is deferred with a trigger.** pgvector recommends partial indexes for few distinct filter values and **partitioning for many**; 500 tenants is many. Partitioning `kb_chunks` by `tenant_id` changes Epic 5's write path and is not worth doing before a customer exists — but `SET LOCAL` is a mitigation, not an answer. **Revisit when `max_scan_tuples` is being reached routinely**, which the log line above is what makes visible.
+
+**And every measurement of this query must be multi-tenant.** A single-tenant benchmark measures a different query and would certify this defect as passing — including the recall@8 set that answers PRD §8 Q7. Whoever sets that bar must be told which measurement it is a bar for.
+
+> **The general form.** *A correctness mechanism and a performance mechanism can each be right and compose into something that is neither.* RLS is applied after the ANN scan; neither document describing them mentions the other, because each is complete on its own terms. The tell is a filter that the query deliberately does not express — if the planner cannot see the predicate, no index can be chosen for it.
+
 ### 6.9 `notifications`, and where migrations live from here
 
 **The table** (PO finding F3, PRD FR55, Story 1.7). Tenant-scoped and per-recipient, so RLS applies on `tenant_id` as everywhere else:

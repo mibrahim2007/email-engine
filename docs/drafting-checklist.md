@@ -50,6 +50,24 @@ Same principle, opposite mechanisms. Ask it per effect, not per story.
 
 > **Story 1.2** — ACs appended while resolving three findings named tables that Epics 2 and 4 create. Correct instructions, wrong story. **Resolving a finding by appending an AC somewhere plausible is how scope inflates.**
 
+### ☐ Ask what a success state looks like when it contains nothing
+
+Error handling gets designed. **The empty success does not, because no layer thinks it failed.**
+
+> **Story 4.2** — a scanned PDF extracts to `""`, chunks to `[]`, and completes: `status = 'indexed'`, chunk count 0, green badge. The admin concludes the bot knows the handbook. Every layer behaved correctly.
+> **Story 4.3** — a crash between `DELETE` and `INSERT` during re-index leaves a source that *worked yesterday* at zero chunks and still `indexed`. Retrieval returns less, RRF still returns something, drafts still generate with plausible confidence. **The product does not break, it quietly gets worse.**
+
+The tell is a count that can legitimately be zero. Ask: *is zero here indistinguishable from "nothing to say"?* If so it needs its own terminal state, not a success badge — and any operation that replaces a populated set needs a refusal path, not just correct SQL.
+
+### ☐ A control does not travel to a second path by itself
+
+A rule gets written in the epic where somebody was looking at that kind of risk. It does not apply itself to the next path of the same kind, and the second path is often the more dangerous one.
+
+> **Story 4.1** — FR57 gives emailed attachments magic-byte true-type checking and an executable refusal, hard-won through PO finding F5. Epic 4's file upload, which is **parsed** rather than merely stored, specified only "validates size and type". §13.3 justified not scanning attachments partly on there being "no deserialization path from a hostile file into the model" — an absolute that Epic 4 makes false.
+> **Story 4.1 again** — §13.1 constrains `call_tenant_webhook` to a pre-registered URL because a model-supplied host is an SSRF. A knowledge source URL is free-form by design and fetched server-side, and no document mentions it.
+
+Ask of any new path: *what is the nearest thing we already treat carefully, and does this get the same rule?* Then say whether it reuses the helper or reimplements it — a second implementation is a second thing to forget.
+
 ### ☐ State the prerequisites a Dev agent cannot satisfy
 
 > **Story 1.1** — two of five ACs needed an interactive Vercel login and a GitHub repository setting. Written into the story as prerequisites with "mark it blocked, don't stub it", they were reported honestly instead of faked.
@@ -81,9 +99,24 @@ Look for: anything that runs **without a request** (crons, workflows, jobs), any
 
 Same mechanism, opposite blast radius. A job that deletes needs a sanity threshold and a refusal path; a job that reads needs an alert. **Deciding this per job is cheaper than discovering it per incident.**
 
+### ☐ Read the acceptance criteria against the scale the NFRs specify
+
+Criteria are written per tenant. **The NFRs are written for the whole system**, and a criterion that passes on one tenant's data can measure a different query entirely once the table holds five hundred.
+
+> **Story 4.4.** AC1 (an HNSW index) and AC3 (RLS scoping, no `tenant_id` predicate) are each correct. Together, at NFR7's 500 tenants × 5,000 chunks, they are not: **filtering is applied after an approximate index is scanned**, so with `ef_search` at 40 and one tenant holding 0.2% of the table, the semantic half returns ~0 rows and **hybrid retrieval silently becomes keyword-only.** Nothing errors. FR29 reads as satisfied because both halves ran.
+>
+> **Worse, the performance criterion rewards it.** AC4's < 150ms is *easier* to hit with the expensive half returning nothing — and every criterion in the epic measures a single tenant, where that tenant is 100% of the table and the defect cannot exist. **It would ship green and degrade with every customer added.**
+
+Two questions: *what fraction of this table belongs to one tenant at NFR-scale?* and *does any criterion here get easier when the feature stops working?* The second is the sharper one — a target that a failure satisfies is not measuring the thing it names.
+
+And a general form worth keeping: **a correctness mechanism and a performance mechanism can each be right and compose into something that is neither.** The tell is a filter the query deliberately does not express — if the planner cannot see the predicate, no index can be chosen for it.
+
 ### ☐ "Whichever ships first" is not an owner
 
 > **SB-2** — Stories 1.3 and 1.4 both needed one lint rule amended. The failure mode is quiet: the second story hits it under time pressure and the cheapest fix is to loosen the rule rather than add one permitted path.
+> **`reindex-kb`** — §10.2 assigned the enumerator to Story 4.3, the PRD put the schedule in Story 4.5, and §12 declared the route naming no story. **One job, three documents, three owners** — and the piece that carries the `SECURITY DEFINER` escape hatch was the one nobody's story described.
+
+A job is not owned until **the route, the schedule, and the query that finds its work** sit in one story. Splitting them is how the second story finds a half-built thing and does the cheap version.
 
 ---
 
@@ -99,6 +132,7 @@ Absence is the claim that goes stale fastest, because products only add.
 ### ☐ The word "every" is where the exception hides
 
 > **§10.2** — "*Every* repository function takes a `tx` from `withTenant`", and §10.3 forty lines later calls the query that determines the tenant, which cannot. Worse: the bootstrap lookup was blocked by the very policy it precedes, so every login would have failed closed.
+> **§13.3** — "There is **no** deserialization path from a hostile file into the model." True of attachments, and stated with no scope, so it reads as a property of the system — in the table a buyer's security reviewer reads. Epic 4 builds that path deliberately. **An absolute does not need amending when it is written; it needs a scope, so a later epic makes it narrower instead of making it false.**
 
 ### ☐ Constrain the exception; do not merely document it
 

@@ -38,7 +38,17 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [3.5](./3.5.md) | Manual reply | **Draft** — 🔴 **three of five ACs restate Epic 6 requirements**; Epic 3 cannot meet its own goal without the outbox |
 | [3.6](./3.6.md) | Live updates and keyboard navigation | **Draft** — `⌘Enter` must fire from inside the textarea |
 
-**Twenty-one stories drafted — all of Epics 1, 2 and 3.** None past 1.1 is Approved — each names what it waits on. Epics 4–8 are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — **F4's migration is now owned by Story 3.2.**
+## Epic 4 — Knowledge base
+
+| Story | Title | Status |
+|---|---|---|
+| [4.1](./4.1.md) | Knowledge source management | **Draft** — owns Epic 4's schema outright, resolving a three-document ownership gap; creates `content_hash`, specified in three places and existing in none |
+| [4.2](./4.2.md) | Extraction and chunking | **Draft** — zero chunks is a terminal state, not a success; a scanned PDF would otherwise report `indexed` |
+| [4.3](./4.3.md) | Embedding and indexing workflow | **Draft** — takes the nightly cron from 4.5; **the chunk swap must be atomic** or a crash mid-re-index leaves a working source `indexed` with zero chunks |
+| [4.4](./4.4.md) | Hybrid retrieval | **Draft** — 🔴 **RLS post-filters the HNSW scan**; at NFR7's scale the semantic half returns ~0 rows and hybrid silently becomes keyword-only. **AC5 blocked on PRD §8 Q7** |
+| [4.5](./4.5.md) | Knowledge search UI | **Draft** — the only surface where a human sees the two retrieval halves separately |
+
+**Twenty-six stories drafted — all of Epics 1, 2, 3 and 4.** None past 1.1 is Approved — each names what it waits on. Epics 5–8 are not drafted. Every PO finding is now resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
 
 ## Story lifecycle
 

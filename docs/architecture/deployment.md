@@ -33,6 +33,12 @@
 >
 > Its enumerator, `tenantsDueForBlobPurge`, follows §10.2's category-two rules and is owned by Story 8.4 — making **six** crons' worth of enumerators plus the two bootstrap lookups.
 
+> **`reindex-kb` is the second destructive cron, and it was not read that way.** *(Added 2026-08-06, drafting Story 4.3.)* Its schedule suggests maintenance, but re-indexing **replaces a source's chunks** — so it carries `purge-blobs`'s blast radius on a nightly cadence, and the §13.1 question "which way does this job fail" has to be asked of it too.
+>
+> The naive shape is `DELETE` the old chunks then insert the new ones. **A crash between the two leaves the source with zero chunks and `status = 'indexed'`** — and unlike a source that never worked, this one worked yesterday. Nothing alerts: retrieval returns fewer rows, RRF still returns something, drafts still generate with plausible confidence. **The product does not break, it quietly gets worse.**
+>
+> **Ruling: embed into a new chunk set first, promote in one transaction, discard on any failure — never delete before the replacement exists.** Plus the refusal path §12 already requires of destructive enumerators: a re-index that would take a populated source to zero does not promote, it keeps the old chunks and reports `empty`. A URL that has started returning a login page is the ordinary case. Owned by Story 4.3; its enumerator `kbSourcesDueForReindex` follows §10.2's category-two rules.
+
 > **The nightly eval set is not a Vercel cron.** PRD Story 8.5 AC3 and §14 describe a nightly eval that reports regressions without blocking merges. It runs on a CI schedule, has no tenant context to establish, and touches no tenant data — **listing it here would give it a scoping problem it does not have.** Stated so nobody adds it.
 
 **Environment variables:** `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `ENCRYPTION_KEY`, `RESEND_API_KEY`, `INBOUND_WEBHOOK_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BLOB_READ_WRITE_TOKEN`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `SENTRY_DSN`.

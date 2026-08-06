@@ -37,6 +37,7 @@
 3. Indexing status and progress are visible in the UI and update as the workflow proceeds.
 4. A failed embedding batch retries without re-extracting or re-chunking.
 5. Re-indexing skips chunks whose content hash is unchanged.
+6. `/api/cron/reindex-kb` runs nightly, enumerates sources due for re-index across tenants, and reports what changed. *(Moved here from Story 4.5 AC4 on 2026-08-06: Architecture §10.2 assigns the enumerator `kbSourcesDueForReindex` to this story, §12 declares the route and named no story, and 4.5 held the schedule — one job, three owners. A scheduled cross-tenant job needing a `SECURITY DEFINER` escape hatch is not a search-screen concern.)*
 
 ---
 
@@ -57,7 +58,7 @@
 1. A search box returns ranked chunks with content preview, source, and score.
 2. Each result links to its source and shows why it matched (semantic, keyword, or both).
 3. Zero-result queries suggest what to add.
-4. Nightly re-index runs on a cron and reports changes.
-5. Admins can trigger re-index of a single source on demand.
+4. ~~Nightly re-index runs on a cron and reports changes.~~ **Moved to Story 4.3 AC6 on 2026-08-06** so the cron, its route, and its enumerator share one owner.
+5. Admins can trigger re-index of a single source on demand. *(Stays here — the trigger is a row-menu button on this screen. The job is 4.3's.)*
 
 ---
