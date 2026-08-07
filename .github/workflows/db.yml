@@ -51,7 +51,7 @@ jobs:
       PGDATABASE: email_engine
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Applied in filename order, as they would be against a real database.
       # ON_ERROR_STOP is what turns a failed statement into a failed job.
