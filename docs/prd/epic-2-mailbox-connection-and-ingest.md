@@ -61,6 +61,7 @@
 5. Attachments are uploaded to Blob storage with content type, size, and checksum recorded; oversized or disallowed types are rejected with a recorded reason.
 6. The stored content type is the **true type read from magic bytes**, not the claimed MIME or the extension; a mismatch is recorded and the true type wins. *(FR57, added 2026-08-04.)*
 7. Executable types are refused at ingest. Blob URLs are served `Content-Disposition: attachment` with `X-Content-Type-Options: nosniff`, and `scan_status` is written as `not_scanned` — never `pending`, which would imply a queue that does not exist.
+8. A delivery status notification is identified during parsing and routed out of the pipeline **before classification**, never treated as a customer message. *(Added 2026-08-07 from Story 6.5: a bounce arrives as ordinary inbound mail, so §4.3 threads it into the original conversation, Epic 5 classifies it and drafts a reply, and auto-send mails `MAILER-DAEMON` — a loop built from five individually-correct stories. **Detection belongs here, not in the classifier**: `Content-Type: multipart/report; report-type=delivery-status` is a header, and it must not depend on a model call that can fail open.)*
 
 ---
 

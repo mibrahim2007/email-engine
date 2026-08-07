@@ -462,6 +462,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 5. Attachments are uploaded to Blob storage with content type, size, and checksum recorded; oversized or disallowed types are rejected with a recorded reason.
 6. The stored content type is the **true type read from magic bytes**, not the claimed MIME or the extension; a mismatch is recorded and the true type wins. *(FR57, added 2026-08-04.)*
 7. Executable types are refused at ingest. Blob URLs are served `Content-Disposition: attachment` with `X-Content-Type-Options: nosniff`, and `scan_status` is written as `not_scanned` — never `pending`, which would imply a queue that does not exist.
+8. A delivery status notification is identified during parsing and routed out of the pipeline **before classification**, never treated as a customer message. *(Added 2026-08-07 from Story 6.5: a bounce arrives as ordinary inbound mail, so §4.3 threads it into the original conversation, Epic 5 classifies it and drafts a reply, and auto-send mails `MAILER-DAEMON` — a loop built from five individually-correct stories. **Detection belongs here, not in the classifier**: `Content-Type: multipart/report; report-type=delivery-status` is a header, and it must not depend on a model call that can fail open.)*
 
 ---
 
@@ -682,6 +683,7 @@ Each epic ends with something deployable and demonstrable. Sequencing is deliber
 4. Admins can configure which triggers are active and their thresholds.
 5. Escalation precision against a labeled set meets **§1.4's ≥ 85%**, with **recall reported alongside it**. *(Clarified 2026-08-06: the threshold was already agreed in §1.4 and cited nowhere. Recall added because precision is optimised by flagging almost nothing, and the failure this story prevents is a **missed** escalation.)*
 6. A simulated model-provider outage produces **queued drafts and human review, never dropped mail** (NFR19), verified by a test that fails the Gateway and asserts the conversation still appears with a stated reason. *(Added 2026-08-04 per traceability finding F11 — the degraded path was required and never exercised.)*
+7. A tenant over its per-tenant AI rate limit has drafting **deferred, never dropped** — the message is ingested, threaded and visible, with a reason sentence distinguishing the limit from a provider outage. *(Added 2026-08-07 from Story 7.3, whose AC1 bundled three sliding windows with different failure directions. This one fires on inbound mail arriving, so there is no HTTP caller to return 429 to and rejecting drops the customer's message — which NFR18 and NFR19 both forbid. It lands here because AC6 already built the queueing surface.)*
 
 ---
 

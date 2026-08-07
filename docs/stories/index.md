@@ -69,8 +69,8 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [6.4](./6.4.md) | Business hours, delay, and rules | **Draft** — 🔴 AC5's overnight queue freezes a decision for 14 hours; six preconditions now re-checked at claim. Adds `tenants.timezone` |
 | [6.5](./6.5.md) | Bounce and failure handling | **Draft** — 🔴 **a bounce is an inbound email**, so Epic 2 threads it, Epic 5 drafts a reply, and auto-send mails `MAILER-DAEMON`. **Requires a scope change to Story 2.5 — for the PO** |
 
-> ### ⚠ Open for the PO — Story 2.5's scope
-> Story 6.5 rules that DSN detection belongs in **Story 2.5's parse step**, before classification, because "is this a bounce" is answerable from a `Content-Type` header and must not depend on a model call that can fail open. 2.5 is `Draft, not Approved`, so the change is cheap — **recorded here rather than appended to 2.5 quietly**, which is how scope inflates (Story 1.2's lesson).
+> ### ✅ Resolved for the PO — Story 2.5's scope
+> Story 6.5 ruled that DSN detection belongs in **Story 2.5's parse step**, before classification, because "is this a bounce" is answerable from a `Content-Type` header and must not depend on a model call that can fail open. **Approved and applied 2026-08-07 as Story 2.5 AC8**, with the PRD amended so the change is visible in the requirement's history rather than having appeared in a task list.
 
 ## Epic 7 — Public API and webhooks
 
@@ -81,11 +81,11 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 | [7.3](./7.3.md) | Rate limiting | **Draft** — 🔴 AC1's AI limiter has no HTTP caller; rejecting drops customer email (NFR18/19). Ruled to queue, and **moved to Story 5.4** |
 | [7.4](./7.4.md) | Outbound webhooks and tenant actions | **Draft** — 🔴 AC3 is a second outbox with no table, cron, or enumerator. 🔴 AC5 validates response **shape**, not content — a third untrusted channel |
 
-> ### ⚠ Open for the PO — two scope changes Epic 7 raises
-> - **Story 2.5** gains DSN detection in the parse step (from Story 6.5), so a bounce never reaches classification.
-> - **Story 5.4** gains the per-tenant AI rate limit (from Story 7.3). It belongs there because that story already built the degraded-path surface — a conversation that appears, flagged, with a stated reason — and the limit must **queue rather than reject**, or NFR18 and NFR19 are both violated on a tenant's busiest day.
+> ### ✅ Resolved for the PO — both scope changes applied 2026-08-07
+> - **Story 2.5 AC8** — DSN detection in the parse step (from Story 6.5), so a bounce never reaches classification.
+> - **Story 5.4 AC7** — the per-tenant AI rate limit **defers rather than rejects** (from Story 7.3). It belongs there because that story already built the degraded-path surface, and rejecting would drop a customer's mail on the tenant's busiest day — which NFR18 and NFR19 both forbid.
 >
-> Both target stories are `Draft, not Approved`, so both are cheap now. **Recorded here rather than appended quietly** — Story 1.2's lesson.
+> Both were raised in the story that found them and applied only after being recorded here, which is the Story 1.2 lesson working: **a scope change that arrives as a task-list edit has no history; one that amends the PRD has.**
 
 ## Epic 8 — Analytics, billing, and hardening
 

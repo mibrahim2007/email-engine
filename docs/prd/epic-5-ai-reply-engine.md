@@ -49,6 +49,7 @@
 4. Admins can configure which triggers are active and their thresholds.
 5. Escalation precision against a labeled set meets **§1.4's ≥ 85%**, with **recall reported alongside it**. *(Clarified 2026-08-06: the threshold was already agreed in §1.4 and cited nowhere. Recall added because precision is optimised by flagging almost nothing, and the failure this story prevents is a **missed** escalation.)*
 6. A simulated model-provider outage produces **queued drafts and human review, never dropped mail** (NFR19), verified by a test that fails the Gateway and asserts the conversation still appears with a stated reason. *(Added 2026-08-04 per traceability finding F11 — the degraded path was required and never exercised.)*
+7. A tenant over its per-tenant AI rate limit has drafting **deferred, never dropped** — the message is ingested, threaded and visible, with a reason sentence distinguishing the limit from a provider outage. *(Added 2026-08-07 from Story 7.3, whose AC1 bundled three sliding windows with different failure directions. This one fires on inbound mail arriving, so there is no HTTP caller to return 429 to and rejecting drops the customer's message — which NFR18 and NFR19 both forbid. It lands here because AC6 already built the queueing surface.)*
 
 ---
 

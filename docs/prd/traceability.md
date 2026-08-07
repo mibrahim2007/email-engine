@@ -68,7 +68,7 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR41 | Each outbound message sent exactly once | 6.1 | ⚠ **holds only if `superseded` ships** — see T-2 |
 | FR42 | Auto-send above a confidence threshold | 6.3 | ⚠ **blocked on §8 Q10** |
 | FR43 | Business hours and configurable delay | 6.4 | ✅ |
-| FR44 | Bounces and delivery failures surfaced | 6.5, **2.5 (detection)** | ⚠ **needs a 2.5 scope change** |
+| FR44 | Bounces and delivery failures surfaced | 6.5, **2.5 AC8 (detection)** | ✅ — scope change applied 2026-08-07 |
 | FR45 | Manual reply bypassing the AI | 3.5 | ✅ |
 | FR46 | API keys: create, scope, revoke, shown once | 7.1 | ✅ — **`scope` needed a column** (§6.7b) |
 | FR47 | Versioned REST API | 7.2 | ⚠ **`GET /v1/usage` deferred to 8.2** — ships as `501` |
