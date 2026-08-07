@@ -11,7 +11,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-  "check:shards": "node scripts/check-shards.mjs"
+  "check:shards": "node scripts/check-shards.mjs",
+  "shard": "node scripts/shard.mjs"
   },
   "devDependencies": {
     "turbo": "^2.10.8",

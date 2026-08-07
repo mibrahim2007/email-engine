@@ -72,7 +72,22 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 > ### ⚠ Open for the PO — Story 2.5's scope
 > Story 6.5 rules that DSN detection belongs in **Story 2.5's parse step**, before classification, because "is this a bounce" is answerable from a `Content-Type` header and must not depend on a model call that can fail open. 2.5 is `Draft, not Approved`, so the change is cheap — **recorded here rather than appended to 2.5 quietly**, which is how scope inflates (Story 1.2's lesson).
 
-**Thirty-seven stories drafted — all of Epics 1 through 6.** None past 1.1 is Approved — each names what it waits on. Epics 7–8 are not drafted. Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
+## Epic 7 — Public API and webhooks
+
+| Story | Title | Status |
+|---|---|---|
+| [7.1](./7.1.md) | API key management | **Draft** — AC1 names a `scope` column that does not exist and §10.3 already assumes keys carry a role; adds both. 🔴 AC4's two counters are writes on **every** authenticated request |
+| [7.2](./7.2.md) | REST API | **Draft** — 🔴 idempotency in Redis and exactly-once in Postgres leave a crash window that **sends two replies**. `GET /v1/usage` deferred to Epic 8 with a `501` |
+| [7.3](./7.3.md) | Rate limiting | **Draft** — 🔴 AC1's AI limiter has no HTTP caller; rejecting drops customer email (NFR18/19). Ruled to queue, and **moved to Story 5.4** |
+| [7.4](./7.4.md) | Outbound webhooks and tenant actions | **Draft** — 🔴 AC3 is a second outbox with no table, cron, or enumerator. 🔴 AC5 validates response **shape**, not content — a third untrusted channel |
+
+> ### ⚠ Open for the PO — two scope changes Epic 7 raises
+> - **Story 2.5** gains DSN detection in the parse step (from Story 6.5), so a bounce never reaches classification.
+> - **Story 5.4** gains the per-tenant AI rate limit (from Story 7.3). It belongs there because that story already built the degraded-path surface — a conversation that appears, flagged, with a stated reason — and the limit must **queue rather than reject**, or NFR18 and NFR19 are both violated on a tenant's busiest day.
+>
+> Both target stories are `Draft, not Approved`, so both are cheap now. **Recorded here rather than appended quietly** — Story 1.2's lesson.
+
+**Forty-one stories drafted — all of Epics 1 through 7.** None past 1.1 is Approved — each names what it waits on. **Epic 8 is the last undrafted one.** Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
 
 ## Story lifecycle
 

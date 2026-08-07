@@ -35,7 +35,7 @@ CREATE POLICY tenant_isolation ON conversations
 ### 6.2 Core DDL
 
 > [!warning] This is an excerpt, and the constraints are what drift *(noted 2026-08-06)*
-> The block below shows **eight of the sixteen tables**. The other eight — `users`, `memberships`, `contacts`, `attachments`, `drafts`, `api_keys`, `webhook_subscriptions`, `usage_records` — have their only written DDL in [`migrations/0001_init.sql`](../../migrations/0001_init.sql), **a file §6.8c says is never applied to Neon.** [`data-models.md`](./data-models.md) lists their fields without types or constraints.
+> The block below shows **eight of the eighteen tables**. Eight more — `users`, `memberships`, `contacts`, `attachments`, `drafts`, `api_keys`, `webhook_subscriptions`, `usage_records` — have their only written DDL in [`migrations/0001_init.sql`](../../migrations/0001_init.sql), **a file §6.8c says is never applied to Neon.** [`data-models.md`](./data-models.md) lists their fields without types or constraints. The remaining two are defined in rulings: `conversation_events` in §6.7 and `webhook_deliveries` in §6.7b.
 >
 > That is workable for columns and **is not workable for `CHECK` constraints**, which is where it has already gone wrong twice — `conversations.status` and `mailboxes.provider` both carried a `CHECK` in `0001` and none here until today, and Neon's schema comes from Drizzle, which is built from this block. Both constraints would simply have been absent on the only instance that matters.
 >
@@ -346,6 +346,58 @@ FR30 classifies **every inbound message**; `conversations` holds one `intent`, o
 The conversation's columns become a **derived summary with stated rules**, never last-write-wins: `intent` is the **first** classified (what the customer originally wanted), `sentiment` the **most negative** seen, `urgency` the **maximum** seen, and `requires_human` **latched** — set by a classifier, cleared only by a human resolving, assigning, or dismissing.
 
 > **An acceptance criterion that reads like a field is often a state machine.** Third instance: Story 1.5's last-owner rule, the send-undo race, and now this. The tell is a value that a later, individually-correct write may lower.
+
+### 6.7b Two Epic 7 schema rulings (2026-08-07)
+
+Both found drafting Epic 7. Neither is in §6.2 above, so both state their constraints in full — §6.2's warning.
+
+**1. `api_keys` gains `role` and `scopes`.**
+
+Story 7.1 AC1 creates keys "with a name and **scope**", and `api_keys` has neither a scope nor a role column — so as the schema stands **every key is full access**, including `POST /v1/conversations/:id/reply`, which sends mail to customers.
+
+§10.3 already assumes the answer: *"Both paths converge on the same `{ tenant, role }` shape, so authorization logic is written once."* A key therefore has a role, and nothing stored it.
+
+```sql
+ALTER TABLE api_keys
+  ADD COLUMN role text NOT NULL DEFAULT 'viewer'
+    CHECK (role IN ('owner','admin','agent','viewer')),
+  ADD COLUMN scopes text[] NOT NULL DEFAULT '{conversations:read}';
+```
+
+Two columns because they answer different questions. **`role`** feeds the existing `requireRole()` so authorization stays written once; **`scopes`** narrows which resources a key touches, because a reporting integration wants read-only conversations and an ingest integration wants `kb:write` and no conversation access at all. Role alone is too coarse; scopes alone would duplicate the role logic §10.3 exists to avoid.
+
+**The default is the narrowest useful thing, not the widest** — a key created by submitting the form quickly gets `conversations:read`, never send-mail. And **a key can never exceed the role of the user who created it**, enforced at creation, or an `agent` mints an `owner` key and role separation is decorative.
+
+**2. `webhook_deliveries` — the 18th table.**
+
+Story 7.4 AC3 requires retry with backoff for 24 hours and visible delivery history. That is `outbound_messages` again for a different transport, and **the schema had `webhook_subscriptions` and nothing else** — so the history had nowhere to live and the retry had nothing to retry from.
+
+```sql
+CREATE TABLE webhook_deliveries (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  subscription_id uuid NOT NULL REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+  event_type      text NOT NULL,
+  payload         jsonb NOT NULL,
+  state           text NOT NULL DEFAULT 'pending'
+                    CHECK (state IN ('pending','claimed','delivered','failed','dead')),
+  attempt_count   smallint NOT NULL DEFAULT 0,
+  last_error      text,
+  response_status smallint,
+  idempotency_key text NOT NULL,
+  scheduled_for   timestamptz NOT NULL DEFAULT now(),
+  claimed_at      timestamptz,
+  delivered_at    timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_webhook_deliveries_pending
+  ON webhook_deliveries (scheduled_for) WHERE state = 'pending';
+```
+
+**The state machine mirrors the outbox deliberately**, because it is the same problem: §8.2's atomic `SECURITY DEFINER` claim returning two columns, jittered and capped backoff so 400 failures do not retry in lockstep, and `claimed_at` for the reaper. Reusing the shape is the point — a second, subtly different outbox is how one of them keeps a bug the other fixed.
+
+> **One deliberate asymmetry with the outbox: there is no `findSent` problem here.** A duplicate HTTP POST carrying a stable `idempotency_key` is a non-event if the receiver honours it, and the spec requires them to. A duplicate *email* is not recoverable that way, which is exactly why §4.1 needed a per-provider capability flag and this does not. **The recovery story differs because the transport's idempotency story differs**, not because one was designed more carefully.
 
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 

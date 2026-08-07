@@ -22,7 +22,8 @@
     { "path": "/api/cron/drain-outbox",   "schedule": "* * * * *" },
     { "path": "/api/cron/reindex-kb",     "schedule": "0 3 * * *" },
     { "path": "/api/cron/rollup-usage",   "schedule": "15 * * * *" },
-    { "path": "/api/cron/purge-blobs",    "schedule": "30 4 * * *" }
+    { "path": "/api/cron/purge-blobs",    "schedule": "30 4 * * *" },
+    { "path": "/api/cron/drain-webhooks", "schedule": "* * * * *" }
   ]
 }
 ```

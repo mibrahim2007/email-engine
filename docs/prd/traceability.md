@@ -70,10 +70,10 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR43 | Business hours and configurable delay | 6.4 | ✅ |
 | FR44 | Bounces and delivery failures surfaced | 6.5, **2.5 (detection)** | ⚠ **needs a 2.5 scope change** |
 | FR45 | Manual reply bypassing the AI | 3.5 | ✅ |
-| FR46 | API keys: create, scope, revoke, shown once | 7.1 | ✅ |
-| FR47 | Versioned REST API | 7.2 | ✅ |
+| FR46 | API keys: create, scope, revoke, shown once | 7.1 | ✅ — **`scope` needed a column** (§6.7b) |
+| FR47 | Versioned REST API | 7.2 | ⚠ **`GET /v1/usage` deferred to 8.2** — ships as `501` |
 | FR48 | Signed outbound webhooks with retries | 7.4 AC1–3 | ✅ |
-| FR49 | Pre-registered tenant action webhook | 7.4 AC4 | ✅ |
+| FR49 | Pre-registered tenant action webhook | 7.4 AC4, **5.2** (the tool) | ✅ |
 | FR50 | Analytics over a selectable period | 8.1 | ✅ |
 | FR51 | Per-tenant usage recorded and reported | 8.2 AC1–2 | ✅ |
 | FR52 | Subscribe, upgrade, downgrade, invoices, limits | 8.2 AC3–5 | ✅ |
@@ -199,6 +199,20 @@ Drafting Epics 5 and 6 found three ways a customer receives two replies, **none 
 **A requirement→story map records that a story delivers the guarantee. It cannot record what the guarantee does not cover.** FR41 is about concurrency on one row, and all three of these are upstream, adjacent, or downstream of that row.
 
 The row above now carries the dependency rather than a bare ✅. The general lesson is the matrix's fourth recorded blind spot: **an FR phrased as a guarantee should be read for its scope, not just its owner** — "exactly once" named a mechanism, and three failure modes lived outside it while the cell stayed green.
+
+### T-3 — Four green rows and no cell for "and what runs it" *(2026-08-07)*
+
+FR48 — "deliver signed webhooks … **with retries**" — mapped to Story 7.4 ACs 1–3 and showed ✅. Drafting 7.4 found that the retry half needs **a table, a cron, an enumerator, and an eighth `system.ts` export**, none of which existed. The matrix could not have known: it asks *which story delivers this FR*, and 7.4 does.
+
+Three of the four Epic 7 rows moved on drafting, each for a different reason the matrix cannot express:
+
+| Row | Was | Why it moved |
+|---|---|---|
+| FR46 | ✅ | "scope" was in the AC and in no schema |
+| FR47 | ✅ | One of its eleven endpoints depends on a **later** epic |
+| FR48 | ✅ | The retry half is an entire subsystem |
+
+**The matrix maps requirement → story and has no column for what the story needs to exist first.** Delivery, scope, schema, and sequencing are four different questions, and a single ✅ answers only the first. Fourth recorded blind spot, alongside gaps between two stories, citations that read like owners, and guarantees read for their owner rather than their scope.
 
 ---
 

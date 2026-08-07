@@ -358,7 +358,7 @@ CREATE POLICY tenant_isolation ON conversations
 ### 6.2 Core DDL
 
 > [!warning] This is an excerpt, and the constraints are what drift *(noted 2026-08-06)*
-> The block below shows **eight of the sixteen tables**. The other eight — `users`, `memberships`, `contacts`, `attachments`, `drafts`, `api_keys`, `webhook_subscriptions`, `usage_records` — have their only written DDL in [`migrations/0001_init.sql`](../../migrations/0001_init.sql), **a file §6.8c says is never applied to Neon.** [`data-models.md`](./data-models.md) lists their fields without types or constraints.
+> The block below shows **eight of the eighteen tables**. Eight more — `users`, `memberships`, `contacts`, `attachments`, `drafts`, `api_keys`, `webhook_subscriptions`, `usage_records` — have their only written DDL in [`migrations/0001_init.sql`](../../migrations/0001_init.sql), **a file §6.8c says is never applied to Neon.** [`data-models.md`](./data-models.md) lists their fields without types or constraints. The remaining two are defined in rulings: `conversation_events` in §6.7 and `webhook_deliveries` in §6.7b.
 >
 > That is workable for columns and **is not workable for `CHECK` constraints**, which is where it has already gone wrong twice — `conversations.status` and `mailboxes.provider` both carried a `CHECK` in `0001` and none here until today, and Neon's schema comes from Drizzle, which is built from this block. Both constraints would simply have been absent on the only instance that matters.
 >
@@ -670,6 +670,58 @@ The conversation's columns become a **derived summary with stated rules**, never
 
 > **An acceptance criterion that reads like a field is often a state machine.** Third instance: Story 1.5's last-owner rule, the send-undo race, and now this. The tell is a value that a later, individually-correct write may lower.
 
+### 6.7b Two Epic 7 schema rulings (2026-08-07)
+
+Both found drafting Epic 7. Neither is in §6.2 above, so both state their constraints in full — §6.2's warning.
+
+**1. `api_keys` gains `role` and `scopes`.**
+
+Story 7.1 AC1 creates keys "with a name and **scope**", and `api_keys` has neither a scope nor a role column — so as the schema stands **every key is full access**, including `POST /v1/conversations/:id/reply`, which sends mail to customers.
+
+§10.3 already assumes the answer: *"Both paths converge on the same `{ tenant, role }` shape, so authorization logic is written once."* A key therefore has a role, and nothing stored it.
+
+```sql
+ALTER TABLE api_keys
+  ADD COLUMN role text NOT NULL DEFAULT 'viewer'
+    CHECK (role IN ('owner','admin','agent','viewer')),
+  ADD COLUMN scopes text[] NOT NULL DEFAULT '{conversations:read}';
+```
+
+Two columns because they answer different questions. **`role`** feeds the existing `requireRole()` so authorization stays written once; **`scopes`** narrows which resources a key touches, because a reporting integration wants read-only conversations and an ingest integration wants `kb:write` and no conversation access at all. Role alone is too coarse; scopes alone would duplicate the role logic §10.3 exists to avoid.
+
+**The default is the narrowest useful thing, not the widest** — a key created by submitting the form quickly gets `conversations:read`, never send-mail. And **a key can never exceed the role of the user who created it**, enforced at creation, or an `agent` mints an `owner` key and role separation is decorative.
+
+**2. `webhook_deliveries` — the 18th table.**
+
+Story 7.4 AC3 requires retry with backoff for 24 hours and visible delivery history. That is `outbound_messages` again for a different transport, and **the schema had `webhook_subscriptions` and nothing else** — so the history had nowhere to live and the retry had nothing to retry from.
+
+```sql
+CREATE TABLE webhook_deliveries (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  subscription_id uuid NOT NULL REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+  event_type      text NOT NULL,
+  payload         jsonb NOT NULL,
+  state           text NOT NULL DEFAULT 'pending'
+                    CHECK (state IN ('pending','claimed','delivered','failed','dead')),
+  attempt_count   smallint NOT NULL DEFAULT 0,
+  last_error      text,
+  response_status smallint,
+  idempotency_key text NOT NULL,
+  scheduled_for   timestamptz NOT NULL DEFAULT now(),
+  claimed_at      timestamptz,
+  delivered_at    timestamptz,
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_webhook_deliveries_pending
+  ON webhook_deliveries (scheduled_for) WHERE state = 'pending';
+```
+
+**The state machine mirrors the outbox deliberately**, because it is the same problem: §8.2's atomic `SECURITY DEFINER` claim returning two columns, jittered and capped backoff so 400 failures do not retry in lockstep, and `claimed_at` for the reaper. Reusing the shape is the point — a second, subtly different outbox is how one of them keeps a bug the other fixed.
+
+> **One deliberate asymmetry with the outbox: there is no `findSent` problem here.** A duplicate HTTP POST carrying a stable `idempotency_key` is a non-event if the receiver honours it, and the spec requires them to. A duplicate *email* is not recoverable that way, which is exactly why §4.1 needed a per-provider capability flag and this does not. **The recovery story differs because the transport's idempotency story differs**, not because one was designed more carefully.
+
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 
 
@@ -876,6 +928,29 @@ Public API at `/api/v1`, authenticated by tenant API key (`Authorization: Bearer
 **Webhook events out to tenants:** `message.received`, `draft.created`, `reply.sent`, `conversation.escalated`, `conversation.resolved`. HMAC-SHA256 signed with the tenant secret, `t=` timestamp in the header, 5-minute tolerance, exponential-backoff retries for 24h.
 
 **Conventions:** cursor pagination (`?cursor=&limit=`, max 100), `application/problem+json` errors, `X-RateLimit-*` headers, `Idempotency-Key` honored on all POSTs for 24h.
+
+> [!important] Idempotency is a Postgres constraint, not a Redis record — ruled 2026-08-07 (Story 7.2)
+> `POST /v1/conversations/:id/reply` is protected by two guarantees that **do not meet**: `Idempotency-Key` in Upstash, and exactly-once sending in `outbound_messages`. The natural implementation checks Redis, inserts the outbound row, then writes the Redis record — and **a crash between the last two leaves a queued reply with no idempotency record**, so the client's retry (exactly what a client does after a timeout) enqueues a second. Two legitimate rows, each sent exactly once, and the customer gets two replies. Writing Redis first is worse: a crash before the insert records an operation that never happened and the reply is silently never sent.
+>
+> Redis cannot join a Postgres transaction, so **no ordering of two writes closes it.** The row and its idempotency record must be *one* write:
+>
+> ```sql
+> ALTER TABLE outbound_messages ADD COLUMN idempotency_key text;
+> CREATE UNIQUE INDEX idx_outbound_idem
+>   ON outbound_messages (tenant_id, idempotency_key)
+>   WHERE idempotency_key IS NOT NULL;
+> ```
+>
+> A retry hits the unique violation, the handler looks up the existing row and returns the original response. **Redis keeps the read-side cache** — a 24h `(tenant, key) → response` record whose loss costs latency, never correctness, which is the right job for a store that cannot be in the transaction. Same treatment for every POST that creates a durable row. **Namespace by tenant**: clients use sequential integers more often than anyone expects.
+>
+> Fourth instance of *a guarantee protects the table it is written on and nothing above it*, after the duplicate draft (§6.7a), the bounce loop (§8.1) and the overnight queued send (§12).
+
+> [!warning] `GET /v1/usage` ships in Epic 8, not Epic 7 — ruled 2026-08-07 (Story 7.2)
+> `usage_records` exists from `0001` and **nothing writes to it until Story 8.2's rollup cron.** Shipped in Epic 7 the endpoint would be live, documented in the published OpenAPI spec, passing its integration test (an empty list is a valid response) and **wrong** — for however long Epic 8 takes.
+>
+> Same shape as SB-1, where five stories described `users` as a mirror of Clerk identity and none populated it. Here the table is real, the endpoint is real, the test passes, and the data does not exist.
+>
+> **It returns `501` with a `problem+json` body naming the epic, and is absent from the OpenAPI spec rather than documented as returning nothing.** A published contract that returns an honest error beats one that returns an empty truth. Story 8.2 owns turning it on.
 
 ---
 
@@ -1231,7 +1306,9 @@ This is the bootstrap problem again at a different scale — and it means the es
 2. **The work happens inside `withTenant()`.** The cron enumerates, then loops, then re-enters a tenant-scoped session per tenant to do anything real. **Processing on the system connection would bypass RLS for the entire pipeline** — which is precisely the failure the whole design exists to prevent, arriving through the back door of a scheduled job.
 3. **Same mechanism as the bootstrap lookup**: `SECURITY DEFINER`, pinned `search_path`, minimal return, `REVOKE FROM PUBLIC` then grant.
 4. **A destructive enumerator needs a refusal path**, not just a correct query. `tenantsDueForBlobPurge` deletes; if its window arithmetic is wrong it destroys a live tenant's attachments and nothing downstream notices. It must refuse to proceed when the returned count exceeds a sanity threshold — see §12.
-5. **The surface test still applies**, now over **seven** exports rather than two — two bootstrap lookups plus one enumerator for each of §12's five crons. Seven enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
+5. **The surface test still applies**, now over **eight** exports rather than two — two bootstrap lookups plus one enumerator for each of §12's six crons. Eight enumerable, commented, deliberately-added functions is still a constrained exception; it is the *unbounded* version that would not be.
+
+> **The eighth arrived on 2026-08-07, and the rule worked again.** `webhookDeliveriesClaimDue` (Story 7.4) is the second enumerator that *writes*, after `outboundClaimDue` — a webhook delivery drain cannot enumerate its own work under RLS any more than the outbox can. The cap has now been renegotiated twice, from two to seven to eight, and each time the growth was visible and argued for rather than edged past. **That is the cap doing its job.** What matters is not the number; it is that `system.ts` stays enumerable and every entry says why it cannot be tenant-scoped.
 
 > **The count was written three ways across two documents and none of them agreed** *(corrected 2026-08-06)*. This point said "seven exports" and then "six enumerable" in the same sentence; §12 said "six crons' worth of enumerators" against a `vercel.json` listing five. **A cap whose number nobody can state is only as strong as the test that enforces it** — which is the argument for the surface test having been written at all, and against ever relying on the prose. The test is right because it enumerates; the prose was wrong because it counted.
 
@@ -1382,7 +1459,8 @@ email-engine/
     { "path": "/api/cron/drain-outbox",   "schedule": "* * * * *" },
     { "path": "/api/cron/reindex-kb",     "schedule": "0 3 * * *" },
     { "path": "/api/cron/rollup-usage",   "schedule": "15 * * * *" },
-    { "path": "/api/cron/purge-blobs",    "schedule": "30 4 * * *" }
+    { "path": "/api/cron/purge-blobs",    "schedule": "30 4 * * *" },
+    { "path": "/api/cron/drain-webhooks", "schedule": "* * * * *" }
   ]
 }
 ```
@@ -1426,7 +1504,7 @@ No provider AI keys — model access is entirely through the Gateway.
 | Secrets at rest | Mailbox OAuth tokens AES-256-GCM encrypted; key never in the DB |
 | Webhook verification | Provider HMAC + timestamp tolerance before any parsing work |
 | Email HTML | `mailparser` → DOMPurify allow-list → rendered in a sandboxed iframe with a strict CSP; remote images proxied and off by default |
-| Prompt injection | Retrieved KB text and inbound email bodies are wrapped in delimited untrusted blocks; the system prompt states tool use is never authorized by message content; `call_tenant_webhook` requires a pre-registered URL and never accepts a model-supplied host |
+| Prompt injection | Retrieved KB text, inbound email bodies, **and tenant action responses** are wrapped in delimited untrusted blocks; the system prompt states tool use is never authorized by message content; `call_tenant_webhook` takes a **registered subscription identifier, never a URL parameter**, so no model-supplied host can reach it. *(Third channel added 2026-08-07, Story 7.4: a tenant's own endpoint returns whatever their order system returns, which contains whatever a customer typed into a shipping-address field. Story 7.4 AC5's schema validation constrains the response's **shape** and says nothing about its **content** — a valid string field can carry an instruction. NFR14's threat model already covered "retrieved documents"; this row did not.)* |
 | Attachments | Size cap, type allow-list, true-type check against magic bytes, download-only from a non-app origin. **No malware scanning in MVP** — see §13.3 |
 | Knowledge sources | *(added 2026-08-06, Story 4.1.)* Uploads reuse FR57's magic-byte true-type check and executable refusal — **the same helper, not a second implementation.** URL sources fetch `http`/`https` only, refuse loopback, link-local and RFC-1918 hosts **re-checked after every redirect**, under size and time caps, and never echo the fetched response into an error an admin can read. This is the one file path in the product that is *parsed* rather than stored — see §13.3 |
 | Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls |

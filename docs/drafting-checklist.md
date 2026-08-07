@@ -148,6 +148,22 @@ The question is: *what was true when this row was written that might not be true
 
 "Exactly once", "always", "never" and "only" name a *mechanism*. Ask what sits immediately above and below it — a guarantee protects its own layer and nothing else, and a requirement→story map cannot record what a guarantee fails to cover.
 
+### ☐ Two guarantees do not compose — look at the gap between them
+
+Distinct from the check above, which asks what a *single* guarantee fails to cover. This one asks what happens **between** two that both work.
+
+> **Story 7.2.** `Idempotency-Key` lives in Redis; exactly-once sending lives in `outbound_messages`. Check Redis → insert the row → write the Redis record, and **a crash between the last two** leaves a queued reply with no idempotency record. The client's retry — exactly what a client does after a timeout — enqueues a second. Reversing the order is worse: the reply is silently never sent. **Redis cannot join a Postgres transaction, so no ordering of two writes closes it.**
+
+The fix is almost never a better ordering. It is **making the two writes one write** — here, a unique constraint on the row the endpoint creates, so the record and the row cannot half-exist. When two mechanisms live in two stores, ask what state the system is in if it dies between them, and whether either store can be dropped.
+
+### ☐ Does this AC bundle things that fail in different directions?
+
+One mechanism, several call sites, and **no shared correct response** when it fires.
+
+> **Story 7.3 AC1** — "sliding-window limits apply per API key, per IP for webhooks, and per tenant for AI calls." The first two return 429 to a caller who can retry. The third is triggered by **an inbound email arriving**: there is no HTTP client waiting, the "caller" is a customer who emailed support, and rejecting **drops their mail** — which NFR18 and NFR19 both forbid, on the tenant's busiest day. It has to queue, and it belongs to the pipeline that spends the budget, not to the API epic.
+
+Shared mechanism is not shared semantics. For each site the AC covers, ask *who is waiting for the answer, and what happens to them if we say no* — the answers diverging is the signal it is more than one requirement.
+
 ### ☐ "Identical to production" is a hazard wherever production has side effects
 
 A test surface asked to behave *exactly* like the real one inherits the real one's consequences, and the requirement's own wording is what makes a correct implementation dangerous.
