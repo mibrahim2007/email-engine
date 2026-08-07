@@ -70,6 +70,13 @@ CREATE TABLE tenants (
   -- slightly wrong for everyone: a default of 'America/New_York' would look
   -- right to the majority and be invisibly wrong for the rest (§6.2 warning).
   timezone      text NOT NULL DEFAULT 'UTC',
+  -- Added 2026-08-07 (Story 8.4). §13.1 has always specified a "30-day
+  -- soft-delete window" and §12 requires purge-blobs to enumerate only
+  -- tenants whose window has *definitively* elapsed — with nothing to
+  -- compute it from. `status` is a lifecycle value, not a timestamp.
+  -- This is when deletion was REQUESTED, not when purging ran.
+  deleted_at    timestamptz,
+  deletion_requested_by text,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 
@@ -408,6 +415,42 @@ CREATE INDEX idx_webhook_deliveries_pending
 **The state machine mirrors the outbox deliberately**, because it is the same problem: §8.2's atomic `SECURITY DEFINER` claim returning two columns, jittered and capped backoff so 400 failures do not retry in lockstep, and `claimed_at` for the reaper. Reusing the shape is the point — a second, subtly different outbox is how one of them keeps a bug the other fixed.
 
 > **One deliberate asymmetry with the outbox: there is no `findSent` problem here.** A duplicate HTTP POST carrying a stable `idempotency_key` is a non-event if the receiver honours it, and the spec requires them to. A duplicate *email* is not recoverable that way, which is exactly why §4.1 needed a per-provider capability flag and this does not. **The recovery story differs because the transport's idempotency story differs**, not because one was designed more carefully.
+
+### 6.7c Two Epic 8 schema rulings (2026-08-07)
+
+**1. `usage_records` gains a unique key, and the rollup aggregates rather than accumulates.**
+
+`usage_records` is `(tenant_id, period, metric, quantity)` with `period` as `'YYYY-MM'`, and Story 8.2 AC2 rolls up **hourly** — an hourly job writing into a monthly bucket, which can only mean read-modify-write. Three failures, each of which costs money:
+
+- **No unique constraint on `(tenant_id, period, metric)`**, so there is no upsert target: the first run of a period updates zero rows, or an `INSERT` fallback creates a second row every later update splits across.
+- **Two rollups racing lose an update.** `quantity + $n` read outside a lock, with a job whose runtime can exceed its interval.
+- **It is not retryable, and NFR18 requires every pipeline step to be.** A re-run after partial failure adds the same usage twice and **the tenant is overbilled**, with nothing downstream disagreeing.
+
+```sql
+ALTER TABLE usage_records ADD CONSTRAINT usage_records_natural_key
+  UNIQUE (tenant_id, period, metric);
+```
+
+**Ruling: record at the point of use, aggregate at rollup.** Usage events are written where the usage happens, carrying the id of the row that caused them; the cron reads, sums, and reports. Re-running produces the same number, so NFR18 is satisfied by construction:
+
+```sql
+INSERT INTO usage_records (tenant_id, period, metric, quantity)
+VALUES (...)
+ON CONFLICT (tenant_id, period, metric)
+DO UPDATE SET quantity = EXCLUDED.quantity, recorded_at = now();
+```
+
+`= EXCLUDED.quantity`, **not `+`** — the aggregate is the truth and the row caches it. **The moment that becomes `+`, the job stops being retryable**, which is worth a comment beside it.
+
+> **Fifth instance this week.** *A job that accumulates cannot be retried; a job that recomputes can.* The others: the outbox claim, the atomic chunk swap, the idempotency constraint, and the queued-send revalidation — each solved by making the result depend on the world's state rather than on how many times the job ran.
+
+**2. The tenant-deletion record outlives the tenant.**
+
+FR54 grants full deletion; NFR15 makes `audit_events` immutable to the application role. A full delete cascades on the `tenant_id` foreign key, which runs as the **table owner**, so the audit rows go despite the app role having no `DELETE` grant.
+
+**That is correct and it should be written down rather than discovered by a reviewer.** NFR15 buys *"the application cannot rewrite history"*, not *"records are indestructible"*. But the record that a tenant was deleted **must survive the deletion** — a compliance question a year later is *"prove you deleted them"*, and the proof cannot have been deleted too.
+
+So one row, outside tenant scope, with no personal data: tenant id, requested-at, completed-at, requester. Owned by Story 8.4.
 
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 

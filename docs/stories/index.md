@@ -87,7 +87,29 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 >
 > Both target stories are `Draft, not Approved`, so both are cheap now. **Recorded here rather than appended quietly** — Story 1.2's lesson.
 
-**Forty-one stories drafted — all of Epics 1 through 7.** None past 1.1 is Approved — each names what it waits on. **Epic 8 is the last undrafted one.** Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
+## Epic 8 — Analytics, billing, and hardening
+
+| Story | Title | Status |
+|---|---|---|
+| [8.1](./8.1.md) | Analytics dashboard | **Draft** — 🔴 §1.4's deflection rate includes "no follow-up complaint", which nothing could measure. Story 5.1's per-message classification makes it computable |
+| [8.2](./8.2.md) | Usage metering and billing | **Draft** — 🔴 an hourly rollup accumulating into a monthly bucket **overbills on retry**; ruled aggregate-not-accumulate. Turns on `GET /v1/usage` |
+| [8.3](./8.3.md) | Observability and error handling | **Draft** — 🔴 AC2's "no PII" is violated by Sentry's defaults, and the most diagnostic errors carry the most personal payloads |
+| [8.4](./8.4.md) | Security hardening and compliance | **Draft** — 🔴 the 30-day soft-delete window had **no column**, so `purge-blobs` had no predicate. **AC4 needs a booked pen test — weeks** |
+| [8.5](./8.5.md) | Load testing and evals | **Draft** — owns the evidence PRD Q10 deferred option C to; splits the load test into a stubbed ingest run and a priced full-path one |
+
+**Forty-six stories drafted — all eight epics.** Drafting is complete. Story 1.1 is at Review; the other forty-five are Draft, none Approved, each naming what it waits on. Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
+
+> ### What drafting produced
+> **Every epic yielded at least one defect that would have shipped green**, and the ones that mattered most were found by comparing an epic's *requirements* to an earlier epic's *design* — a comparison no pass inside a single epic can make. The severe ones, in order of how quietly they would have failed:
+>
+> | | Would have |
+> |---|---|
+> | RLS post-filters the HNSW scan (4.4) | Silently reduced hybrid retrieval to keyword-only at 500 tenants, **while making the latency target easier to hit** |
+> | A bounce is an inbound email (6.5) | Had the product **auto-reply to `MAILER-DAEMON`** in a loop |
+> | Regenerate leaves two live drafts (5.5) | Sent **two replies** to one customer, with every exactly-once guarantee satisfied |
+> | A polite follow-up un-escalates (5.1) | Dropped an angry customer out of the escalation queue, unread |
+> | The playground dispatches for real (5.6) | Let an admin **issue a refund** by testing the bot |
+> | An accumulating rollup (8.2) | **Overbilled** every tenant after any retry |
 
 ## Story lifecycle
 

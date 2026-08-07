@@ -167,6 +167,10 @@ Three definitions carry it, and each exists to stop the model deciding its own s
 
 **Consumers, all now reading a computed number:** the §4.1 meter and its threshold marker; Story 5.4 AC1's low-confidence escalation; FR42's auto-send threshold, which is what makes Front-End Spec §5.3's backtest dialog honest — *"of your last 200 drafts, 84 would have sent"* is a sentence you can now write and defend. **PRD §8 Q1 is unblocked by this ruling.**
 
+> **Option C has an owner, which is what stops "decide later" from meaning "never".** Story 8.5 AC3's nightly eval scores groundedness **and human-judged correctness** per case and reports the **correlation between them**. High correlation means B is doing its job; low correlation is the evidence that buys a second-model grader. `model_confidence` is scored in the same run, gating nothing, because the gap between claimed and computed is what moves first when a provider updates a model behind a stable name.
+>
+> Assigned explicitly because *a decision with a settled design and no owner never gets built* — the shape that left PO finding F4's migration unwritten for two days with nothing wrong except that no story said it.
+
 #### The playground shares the agent and must not share the dispatcher (ruled 2026-08-06)
 
 FR36 and Story 5.6 AC2 require the playground to use the **identical agent, tools, and knowledge as production**. That wording is right — a playground that behaves differently tests nothing — and taken literally it is dangerous.

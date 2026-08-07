@@ -83,6 +83,24 @@ A rule gets written in the epic where somebody was looking at that kind of risk.
 
 Ask of any new path: *what is the nearest thing we already treat carefully, and does this get the same rule?* Then say whether it reuses the helper or reimplements it — a second implementation is a second thing to forget.
 
+### ☐ An AC that names a quantity needs a column — grep before ticking it
+
+The single highest-yield check on this project, and it is a `grep`.
+
+> **`content_hash`** (FR27, §8.3, Story 4.3 AC5 — three documents, no schema) · **`api_keys.scopes`** (AC1 creates "scoped" keys; §10.3 already assumed a role too) · **`tenants.timezone`** (AC1's "the tenant's timezone"; `region` is an infrastructure location) · **`tenants.deleted_at`** (§13.1's "30-day soft-delete window", with a purge cron already declared against it).
+
+Four instances, four epics, and every one left a traceability row green. **The tell is a phrase containing a unit or a possessive** — *a hash*, *a window*, *scoped*, *the tenant's X*. Search the schema for where that quantity lives before the AC is accepted.
+
+The `deleted_at` case shows the cost: the enumerator §12 assigned had no predicate to write, so the safe implementation returns nothing and the unsafe one **deletes a live tenant's attachments**.
+
+### ☐ Can this job be re-run? Accumulating jobs cannot
+
+> **Story 8.2.** An hourly rollup writing `quantity = quantity + $n` into a monthly bucket **overbills on every retry** — and NFR18 requires every pipeline step to be retryable. It also had no unique key to upsert against and lost updates under concurrency.
+
+The fix is never a lock. It is to make the result depend on **the world's state rather than the number of times the job ran**: record events where they happen, and let the job *aggregate* rather than accumulate. Then `ON CONFLICT DO UPDATE SET quantity = EXCLUDED.quantity` — and the moment that `=` becomes `+`, retryability is gone again.
+
+Fifth instance of the same move, after the outbox claim, the atomic chunk swap, the idempotency constraint and the queued-send revalidation. Ask of any scheduled or retried work: *what does running this twice produce?*
+
 ### ☐ State the prerequisites a Dev agent cannot satisfy
 
 > **Story 1.1** — two of five ACs needed an interactive Vercel login and a GitHub repository setting. Written into the story as prerequisites with "mark it blocked, don't stub it", they were reported honestly instead of faked.

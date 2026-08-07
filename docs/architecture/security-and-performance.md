@@ -16,11 +16,21 @@
 | Prompt injection | Retrieved KB text, inbound email bodies, **and tenant action responses** are wrapped in delimited untrusted blocks; the system prompt states tool use is never authorized by message content; `call_tenant_webhook` takes a **registered subscription identifier, never a URL parameter**, so no model-supplied host can reach it. *(Third channel added 2026-08-07, Story 7.4: a tenant's own endpoint returns whatever their order system returns, which contains whatever a customer typed into a shipping-address field. Story 7.4 AC5's schema validation constrains the response's **shape** and says nothing about its **content** — a valid string field can carry an instruction. NFR14's threat model already covered "retrieved documents"; this row did not.)* |
 | Attachments | Size cap, type allow-list, true-type check against magic bytes, download-only from a non-app origin. **No malware scanning in MVP** — see §13.3 |
 | Knowledge sources | *(added 2026-08-06, Story 4.1.)* Uploads reuse FR57's magic-byte true-type check and executable refusal — **the same helper, not a second implementation.** URL sources fetch `http`/`https` only, refuse loopback, link-local and RFC-1918 hosts **re-checked after every redirect**, under size and time caps, and never echo the fetched response into an error an admin can read. This is the one file path in the product that is *parsed* rather than stored — see §13.3 |
-| Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls |
+| Rate limiting | Upstash sliding window: per API key, per IP on webhooks, per tenant on AI calls. **Three limits, one rule — see below** |
+| Data deletion window | *(added 2026-08-07, Story 8.4.)* `tenants.deleted_at` records when deletion was **requested**; `tenantsDueForBlobPurge` selects only on `deleted_at + 30 days < now()` and refuses to run above a sanity threshold (§12). A **tenant-deletion record outside tenant scope** survives the cascade, because "prove you deleted them" cannot be answered by evidence that was deleted with them (§6.7c) |
 | Audit | Append-only `audit_events`; no `UPDATE`/`DELETE` grant to `app_user` |
 | Headers | CSP, HSTS, `X-Content-Type-Options`, `Referrer-Policy` via `next.config.ts` |
 | Data deletion | Tenant delete cascades; blob purge job (**`/api/cron/purge-blobs`**, declared in §12 as of 2026-08-05 — it was specified here and scheduled nowhere); 30-day soft-delete window |
 | Compliance posture | GDPR export/erase endpoints, per-tenant data-region setting, DPA-ready audit trail |
+
+> [!important] Three limits, one rule: degrade the AI, never the mail *(ruled 2026-08-07)*
+> Three separate mechanisms restrict a tenant, and each was specified in a different story with its own over-limit behaviour: the **API rate limit** (Story 7.3), the **per-tenant AI rate limit** (Story 5.4, moved there from 7.3), and the **plan message limit** (Story 8.2 AC5).
+>
+> Only the first has an HTTP caller to reject. The other two fire on **inbound mail arriving** — there is no client waiting, and the "caller" is a customer who emailed support. **Rejecting there drops their mail**, which NFR18 and NFR19 both forbid, on the tenant's busiest day or over a billing state.
+>
+> **The rule is the same in all three cases and is written once here because it was being rediscovered per story:** mail is always received, threaded, and made visible. What degrades is the **AI** work — drafting pauses, the conversation appears with a stated reason in the timeline, and owners and admins get one deduplicated notice (FR56).
+>
+> **And the reasons must be distinguishable sentences**, not a shared "limit reached": *"you are over your plan's limit"*, *"you are sending faster than your plan allows"* and *"our model provider is down"* lead to three different actions. NFR23's "actionable" test is exactly this distinction, and Story 6.5 drew the same one for delivery failures.
 
 ### 13.2 Performance targets
 

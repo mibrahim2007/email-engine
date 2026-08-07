@@ -74,11 +74,11 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR47 | Versioned REST API | 7.2 | ⚠ **`GET /v1/usage` deferred to 8.2** — ships as `501` |
 | FR48 | Signed outbound webhooks with retries | 7.4 AC1–3 | ✅ |
 | FR49 | Pre-registered tenant action webhook | 7.4 AC4, **5.2** (the tool) | ✅ |
-| FR50 | Analytics over a selectable period | 8.1 | ✅ |
-| FR51 | Per-tenant usage recorded and reported | 8.2 AC1–2 | ✅ |
+| FR50 | Analytics over a selectable period | 8.1 | ⚠ **deflection rate's definition depends on a PM window** |
+| FR51 | Per-tenant usage recorded and reported | 8.2 AC1–2 | ✅ — needs `UNIQUE (tenant_id, period, metric)` and an aggregating rollup (§6.7c) |
 | FR52 | Subscribe, upgrade, downgrade, invoices, limits | 8.2 AC3–5 | ✅ |
 | FR53 | Append-only audit event for every state change | **1.5 AC5 owns the write path**; 3.4 AC5, 7.1 AC5 consume it | ✅ F8 fixed |
-| FR54 | Data export and full deletion | 8.4 AC3 | ✅ |
+| FR54 | Data export and full deletion | 8.4 AC3 | ✅ — needed `tenants.deleted_at`; tension with NFR15 ruled in §6.7c |
 | FR55 | In-app notification centre | 1.7 AC1–3 | ✅ |
 | FR56 | Operational email for two conditions | 1.7 AC4–5 | ✅ |
 | FR57 | Attachment containment, true type, no false scan claim | 2.5 AC6–7 | ✅ |
@@ -213,6 +213,24 @@ Three of the four Epic 7 rows moved on drafting, each for a different reason the
 | FR48 | ✅ | The retry half is an entire subsystem |
 
 **The matrix maps requirement → story and has no column for what the story needs to exist first.** Delivery, scope, schema, and sequencing are four different questions, and a single ✅ answers only the first. Fourth recorded blind spot, alongside gaps between two stories, citations that read like owners, and guarantees read for their owner rather than their scope.
+
+### T-4 — Every ✅ in this table is about delivery, and four other things can be missing *(2026-08-07)*
+
+With all eight epics drafted, the pattern across T-1 to T-3 resolves into one statement worth keeping at the top of this file.
+
+**A ✅ here means: some story's acceptance criteria, if implemented, deliver this requirement.** It has never meant, and cannot mean, any of the following — each of which was found by drafting, and each of which left a row green while the requirement was unmeetable:
+
+| Missing | Found in | The row said |
+|---|---|---|
+| **A column** | `content_hash`, `api_keys.scopes`, `tenants.timezone`, `tenants.deleted_at` | ✅ |
+| **A definition** | FR50's deflection rate, whose §1.4 definition contains a term nothing could measure | ✅ |
+| **A subsystem** | FR48's retry half — a table, a cron, an enumerator | ✅ |
+| **Correct sequencing** | FR47's `/v1/usage`, which reads a table a *later* epic populates | ✅ |
+| **Scope beyond the mechanism** | FR41's exactly-once, with three ways to send twice outside it | ✅ |
+
+**The common shape: a requirement→story map records who is responsible and nothing about whether the thing is possible.** Both are worth knowing and only one is in this table.
+
+**The cheap habit that catches most of them, and it is a `grep`:** when an acceptance criterion names a quantity — *"scoped keys"*, *"content hash"*, *"the tenant's timezone"*, *"a 30-day window"* — search the schema for where that quantity lives before ticking the row. Four of the five rows above would have failed that check the day they were written.
 
 ---
 
