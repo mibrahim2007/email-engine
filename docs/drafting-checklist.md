@@ -199,6 +199,34 @@ A job is not owned until **the route, the schedule, and the query that finds its
 
 ---
 
+## When every epic is drafted — the whole-corpus pass
+
+Runs once, and only once all stories exist. Distinct from the boundary audit (stories within an epic) and the cross-epic design check (one later epic against one earlier one): this compares **the whole corpus to itself**, and asks questions that need every story present to answer.
+
+### ☐ For each table, which story *creates* it?
+
+> **Eleven of eighteen tables had no creating story.** `messages` is referenced by 23 stories and `drafts` by 20, and neither had an owner. Story 2.4 inserts into `messages` on day one of Epic 2 — on a Drizzle-built Neon database it fails on its first statement, after Epic 1 reported green.
+>
+> **The cause is a reference implementation that is complete and unreachable.** `migrations/0001` creates all sixteen tables, correctly, and is checked in — so every story that opened it saw a finished schema. But §6.8c never applies it to Neon. **Nothing looked absent, so nobody looked for an owner.** Two stories four epics apart reached for the same sentence: *"already exists in the schema"*, *"already exists from `migrations/0001`"*.
+
+Ask it of every durable thing, not just tables: which story creates the queue, the config, the fixture, the seed data.
+
+> **And beware the measurement.** This count went six → nine → eleven across three passes, always in the same direction, because **a story that adds a column to a table reads exactly like one that creates it.** A "Task 1 — Schema" heading that adds two columns is not an owner. The review made the same error as the authors, three times, and for the same reason: *this is clearly somebody's.*
+
+### ☐ Build the dependency graph and look for cycles
+
+> **Stories 2.4 and 2.7 each depended on the other.** 2.4 needed 2.7's dedup; 2.7's pipeline is downstream of 2.4's webhook. **Neither could be approved first**, and the method runs one story at a time in dependency order.
+
+Both halves were right, and the word "dedup" named two things: a **constraint** (whoever creates `messages`) and a **pipeline guarantee** (2.7). Splitting the noun broke the cycle. A cycle usually means one term is doing two jobs.
+
+Trace it mechanically — forward references and cycles are a five-line script, and no amount of careful reading finds them.
+
+### ☐ Search for the same artifact under two names
+
+> **One scale fixture, two builders.** Story 3.1 needed 500 tenants × 50k conversations; Story 8.5 planned to "extend Story 4.4's tool to conversations and messages" — the same thing, four epics apart, called a *scale fixture* in one place and a *multi-tenant fixture* in the other. Five stories consume it.
+
+Neither was wrong from inside its own epic. **The tell is a shared noun with different adjectives**, and grep finds it once you suspect it.
+
 ## When reviewing or amending an artifact
 
 ### ☐ Verify an absence before designing around it

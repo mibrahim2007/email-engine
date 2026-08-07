@@ -775,6 +775,67 @@ FR54 grants full deletion; NFR15 makes `audit_events` immutable to the applicati
 
 So one row, outside tenant scope, with no personal data: tenant id, requested-at, completed-at, requester. Owned by Story 8.4.
 
+### 6.7d Six tables had no creating story, and the scratch box is why (ruled 2026-08-07)
+
+Found by the whole-corpus pass, the first review to ask *for each table, which story creates it* across all forty-six stories at once. **No pass that stays inside one epic could see this, and neither could traceability**, because no FR says "create the messages table".
+
+| Table | Referenced by | Created by |
+|---|---|---|
+| `messages` | **23 stories** | *nobody* |
+| `drafts` | **20 stories** | *nobody* |
+| `conversations` | 12 stories | *nobody* |
+| `conversation_events` | 12 stories | *nobody* |
+| `attachments` | 8 stories | *nobody* |
+| `usage_records` | 5 stories | *nobody* |
+| `audit_events` | 3 stories | *nobody* |
+| `contacts` | 2 stories | *nobody* |
+| `outbound_messages` | 7 stories | *nobody* |
+| `api_keys` | 2 stories | *nobody* |
+| `webhook_subscriptions` | 1 story | *nobody* |
+
+**Eleven of eighteen** — and the count grew twice while this ruling was being written, both times in the same direction.
+
+The first pass said six. Checking the named owners found three more (`drafts`, `conversation_events`, `audit_events`). Verifying *those* found two more (`outbound_messages`, `api_keys`). **Every miss had one cause: a story that adds a column to a table reads exactly like a story that creates it.** Story 6.1 has a task headed *"Schema"* that adds two columns; Story 7.1 has one that adds two more; Story 5.5 adds a state and an index. All three look like owners at a glance and none was.
+
+**That is worth more than the fix.** The measurement error and the original defect are the *same* error — *this table is clearly somebody's* — made once by every story author reading `0001`, and then three times by the review meant to catch it.
+
+**The root cause is the scratch instance, and it is worth stating plainly because it will keep producing this shape.**
+
+`migrations/0001_init.sql` creates all sixteen tables, correctly, and it is checked in. **Every story that opens it sees a complete, working schema** — so a story writing to `messages` has no reason to think the table is missing, and none of them was wrong to read it.
+
+But §6.8c rules that **`0001`–`0003` are never applied to Neon**: the live schema comes from Drizzle. So the only file that creates these tables is the one file guaranteed not to run on the target database. **The scratch box did not just fail to be production — it made the schema *look owned*.**
+
+Two stories say it out loud, in the same words, four epics apart:
+
+> Story 2.6: *"`thread_key` on `conversations` … **the constraint already exists in the schema**."*
+> Story 1.5: *"**`audit_events` already exists from `migrations/0001`** with `SELECT, INSERT` and nothing else."*
+
+Both true of the scratch box. Neither true of anything Neon will ever have. **That two independent stories reached for the same sentence is the evidence that this is a property of the artifact rather than a lapse by an author.**
+
+**The blast radius is immediate.** Story 2.4 is among the first Epic 2 stories to run, and it inserts into `messages`. On a Neon database built from Drizzle it fails on the first statement — not subtly, but on day one of Epic 2, after Epic 1 reported green.
+
+**Ruling: each epic's first story owns its epic's schema, exactly as Story 4.1 does.**
+
+| Tables | Owner |
+|---|---|
+| `tenants`, `users`, `memberships` | Story 1.2 (unchanged — AC3 scopes it deliberately) |
+| `mailboxes`, `conversations`, `messages`, `contacts`, `attachments` | **Story 2.1** — it already creates `mailboxes` |
+| `kb_sources`, `kb_chunks` | Story 4.1 (§6.7b) |
+| `webhook_subscriptions`, `webhook_deliveries` | Story 7.4 |
+| `usage_records` | Story 8.2 |
+| `notifications` | Story 1.7 — its AC1 already requires the table with DDL |
+| `audit_events` | **Story 1.5** — it owns the write path (F8); it now owns the table too |
+| `conversation_events` | **Story 3.3** — first story in sequence to render the timeline |
+| `drafts` | **Story 5.3** — first story to insert one. Story 5.5 adds `superseded` and the partial unique index (§6.7a) |
+| `outbound_messages` | **Story 6.1** — Story 7.2 adds `idempotency_key` |
+| `api_keys` | **Story 7.1** |
+
+**The first version of this table named 1.5, 3.3 and 5.5 as owners of tables their stories never claimed** — asserting an owner in the architecture while the story says *"already exists from `migrations/0001`"* is the same defect one level up, and it was caught by checking the four rows rather than trusting them. **A ruling that assigns ownership has to be read back into the stories it assigns to**, or it is a citation that reads like an owner.
+
+**And each brings its constraints from `0001`, not only its columns** — §6.2's warning, now with a second reason: `0001` is where those `CHECK`s exist, and it is the file nobody will run.
+
+> **The general form worth keeping.** *A reference implementation that is complete and unreachable is more dangerous than one that is missing.* Six weeks of stories were written against a schema that exists, works, passes its tests, and will never be deployed. **Nothing looked absent, so nobody looked for an owner** — the F3/F8/SB-1 shape at its largest scale, caused not by an oversight but by a correct artifact being read as the wrong one.
+
 ### 6.8 Ruling on PO finding F1 — which database is the target (2026-08-03)
 
 

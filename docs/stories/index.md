@@ -99,6 +99,11 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 
 **Forty-six stories drafted — all eight epics.** Drafting is complete. Story 1.1 is at Review; the other forty-five are Draft, none Approved, each naming what it waits on. Every PO finding is resolved, so no epic is blocked editorially — **F4's migration is owned by Story 3.2.**
 
+> ### ⚠ Whole-corpus pass, 2026-08-07 — three findings, all applied
+> Run once, after all forty-six existed. **Eleven of eighteen tables had no creating story** — `messages` (referenced by 23 stories) and `drafts` (20) among them — because `migrations/0001` creates all sixteen correctly and §6.8c never applies it to Neon. Every epic's first story now owns its epic's schema (§6.7d). **Stories 2.4 and 2.7 depended on each other**, so neither could be approved first; "dedup" named a constraint and a pipeline guarantee, and splitting the noun broke the cycle. **One scale fixture had two builders** — Story 3.1's and Story 8.5's — under two names, four epics apart.
+>
+> All three needed every story to exist to be visible, and none was findable by reading.
+
 > ### What drafting produced
 > **Every epic yielded at least one defect that would have shipped green**, and the ones that mattered most were found by comparing an epic's *requirements* to an earlier epic's *design* — a comparison no pass inside a single epic can make. The severe ones, in order of how quietly they would have failed:
 >
