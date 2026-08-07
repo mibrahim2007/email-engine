@@ -347,6 +347,16 @@ The conversation's columns become a **derived summary with stated rules**, never
 
 > **An acceptance criterion that reads like a field is often a state machine.** Third instance: Story 1.5's last-owner rule, the send-undo race, and now this. The tell is a value that a later, individually-correct write may lower.
 
+**3. `drafts.model_confidence` — the self-report, demoted** *(added 2026-08-07 with the Q10 ruling, §10.4)*.
+
+```sql
+ALTER TABLE drafts
+  ADD COLUMN model_confidence numeric(4,3)
+    CHECK (model_confidence >= 0 AND model_confidence <= 1);
+```
+
+`confidence` keeps its column and changes meaning: it is now **computed groundedness**, written by code after generation rather than emitted by the model. It stays nullable, and **`NULL` is meaningful** — a draft that makes no factual claims has no groundedness to report, and never auto-sends. `model_confidence` holds what the model said about itself and gates nothing.
+
 ### 6.7b Two Epic 7 schema rulings (2026-08-07)
 
 Both found drafting Epic 7. Neither is in §6.2 above, so both state their constraints in full — §6.2's warning.

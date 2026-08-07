@@ -7,7 +7,7 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 
 | # | Question | Blocks | Owner |
 |---|---|---|---|
-| 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? **Blocked by question 10** — choosing between two thresholds presumes the number is calibrated, and today it is a self-report | Epic 6 | PM, after Epic 5 eval data **and question 10** |
+| 1 | Auto-send default — conservative (0.9, off) or ship on at 0.85? **Unblocked 2026-08-07 by question 10.** The threshold is now a fraction of factual sentences backed by a clickable source, so 0.85 and 0.9 are a real choice — and Front-End Spec §5.3's backtest (*"of your last 200 drafts, 84 would have sent"*) is a sentence that can be defended | Epic 6 | PM, after Epic 5 eval data |
 | ~~2~~ | ~~Data residency — single region now, or tenant→region routing designed up front?~~ **Closed 2026-08-04: single region.** The attribute is the seam ([[Email Engine Architecture]] §6.8b); the routing is not built, because it would change `withTenant()` before there is a customer to justify it. Reasoning and the revisit trigger in §6.8d | ~~Epic 8~~ | Architect ✓ |
 | 3 | Model choice — tenant-selectable or a plan attribute we control? | Epic 5, pricing | PM |
 | 4 | Pricing shape — per seat, per message, or hybrid? | Epic 8 | PM |
@@ -15,7 +15,7 @@ Carried from [[Email Engine Architecture]] §17, plus product-side items. Each n
 | ~~5~~ | ~~Attachment malware scanning vendor~~ **Closed 2026-08-04: none.** The question was unanswerable as posed — it asked *which vendor*, and the answer is that scanning is deferred and containment ships instead (FR57). Reasoning in [[Email Engine Architecture]] §13.3 | ~~Epic 2~~ | Architect ✓ |
 | ~~6~~ | ~~Does MVP need a shared team view of who is currently viewing a conversation?~~ **Resolved 2026-08-03: no** — assignment plus a send-time conflict check. Reasoning and revisit criteria in [[Email Engine Front-End Spec]] §13. | ~~Epic 3~~ | UX Expert ✓ |
 | 7 | Retrieval quality bar — what recall@8 gates Epic 5? **The bar must be set against a *multi-tenant* measurement** — see §8.2 | Epic 4 → 5 | Architect + PM |
-| **10** | **What is the confidence number?** *(Raised 2026-08-06 drafting Story 5.3.)* It is currently the model's own self-report, and it gates the meter, escalation, **auto-send**, and question 1 above. See §8.3 | **Story 5.3 AC3 has no mechanism; Epic 6 inherits the choice** | **PM + Architect** |
+| ~~10~~ | ~~What is the confidence number?~~ **Closed 2026-08-07: computed groundedness (option B).** `confidence` becomes *resolvable-cited claim sentences / claim sentences*, computed in code with a **code-owned denominator** so the model cannot relabel its way to a better score; the self-report is kept as `model_confidence` and gates nothing. A zero denominator yields `NULL`, and `NULL` never auto-sends. Reasoning in §8.3 and [[Email Engine Architecture]] §10.4 | ~~Story 5.3, Epic 6~~ | **PM + Architect ✓** |
 | 9 | Classification accuracy bar — what threshold gates enabling drafting? *(Raised 2026-08-06 drafting Story 5.1: unlike question 7's, this number exists in no document and nobody has been asked to agree it.)* Needs answering **per field**, with `requires_human` recall weighted above intent accuracy | Epic 5 | PM + Architect |
 
 ---
@@ -61,6 +61,15 @@ Story 4.4 builds the labelled set and reports both. **It deliberately does not s
 
 
 ### 8.3 Analysis for question 10 — what the confidence number is
+
+> [!success] Resolved 2026-08-07 — option B, with A retained as a recorded column
+> **`confidence` is computed groundedness**, not a self-report. The full ruling and its three anti-gaming definitions are [[Email Engine Architecture]] §10.4; the schema half is §6.7a.
+>
+> **What decided it was AC4, not the failure mode.** Story 6.3 requires an admin to acknowledge a plain-language explanation before arming auto-send, and Front-End Spec §5.3 specifies that explanation as a backtest: *"With auto-send at 0.90, of your last 200 drafts, 84 would have sent without a person reading them."* Under option A the honest second half of that sentence is *"84 drafts the model felt good about"* — an explanation that should, correctly, stop a support lead from clicking the button. **A number you cannot explain to the person taking the risk is not a threshold, it is a decoration.**
+>
+> **Option C is not rejected, it is sequenced.** A second-model grader costs a call per draft and adds a second thing that can be wrong, and under a self-report there was no baseline to justify it against. There is now: Story 5.1's eval set can score groundedness against human-judged correctness, and **if the two diverge, C becomes a decision with evidence.** Keeping `model_confidence` is what makes that comparison possible at all.
+>
+> **The known limitation, stated so nobody rediscovers it as a defect:** groundedness is provenance, not truth. A reply can be perfectly cited to a chunk that is out of date. This ruling makes the number *honest and comparable*; it does not make it a correctness score, and the meter's label says so.
 
 Architect input, 2026-08-06, raised drafting Story 5.3.
 

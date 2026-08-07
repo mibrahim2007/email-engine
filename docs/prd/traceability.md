@@ -56,7 +56,7 @@ That mattered: findings **F3** (no story built the notification channel) and **F
 | FR29 | Hybrid semantic + keyword, tenant-scoped | 4.4 | ✅ |
 | FR30 | Classify intent, sentiment, urgency, language, PII | 5.1 | ✅ — **per message**, per §6.7a |
 | FR31 | Draft every classified message not needing a human | 5.3 | ✅ |
-| FR32 | Draft carries confidence, citations, model, tool calls | 5.3 AC2 | ⚠ **what `confidence` is, is §8 Q10** |
+| FR32 | Draft carries confidence, citations, model, tool calls | 5.3 AC2 | ✅ — `confidence` is **computed groundedness** (§10.4), `model_confidence` records the self-report |
 | FR33 | Agent tools: KB, contact, tenant webhook, escalate | 5.2 AC1 | ✅ — **five tools**; `propose_reply` was missing from the epic |
 | FR34 | Escalate on language, PII, sentiment, low confidence | 5.4 AC1 | ✅ |
 | FR35 | Tenant persona configuration | 5.6 AC1 | ✅ |

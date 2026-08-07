@@ -670,6 +670,16 @@ The conversation's columns become a **derived summary with stated rules**, never
 
 > **An acceptance criterion that reads like a field is often a state machine.** Third instance: Story 1.5's last-owner rule, the send-undo race, and now this. The tell is a value that a later, individually-correct write may lower.
 
+**3. `drafts.model_confidence` — the self-report, demoted** *(added 2026-08-07 with the Q10 ruling, §10.4)*.
+
+```sql
+ALTER TABLE drafts
+  ADD COLUMN model_confidence numeric(4,3)
+    CHECK (model_confidence >= 0 AND model_confidence <= 1);
+```
+
+`confidence` keeps its column and changes meaning: it is now **computed groundedness**, written by code after generation rather than emitted by the model. It stays nullable, and **`NULL` is meaningful** — a draft that makes no factual claims has no groundedness to report, and never auto-sends. `model_confidence` holds what the model said about itself and gates nothing.
+
 ### 6.7b Two Epic 7 schema rulings (2026-08-07)
 
 Both found drafting Epic 7. Neither is in §6.2 above, so both state their constraints in full — §6.2's warning.
@@ -1348,6 +1358,30 @@ const result = await streamText({
 ```
 
 Model choice is a tenant setting resolved against an allow-list per plan. The Gateway handles provider failover and reports token/cost per request, which flows into `usage_records`.
+
+#### What `confidence` is (ruled 2026-08-07 — closes PRD §8 Q10)
+
+`propose_reply` emitted body, citations **and confidence** in one call, from one context. The score was the model's opinion of its own work, and it gated the meter, the escalation floor, **auto-send**, and Q1's choice between 0.9 and 0.85 — a choice that only means something if the number is comparable across drafts, tenants, intents and model versions. A self-report is none of those things, and models report high confidence most readily in the case this product exists to catch: a fluent answer to a question the knowledge base does not cover.
+
+**Ruling: `confidence` is computed groundedness. The model's self-report is recorded beside it and gates nothing.**
+
+```
+confidence = resolvable-cited claim sentences / claim sentences
+```
+
+Three definitions carry it, and each exists to stop the model deciding its own score:
+
+1. **The denominator is code-owned.** Every sentence of the draft body **except** a fixed boilerplate set — the greeting, the sign-off, and the tenant's configured signature and disclaimers, which are known strings from the persona (§4.6). **The model does not get to declare a sentence non-factual**, or the metric is gamed by relabelling.
+2. **The numerator counts *resolvable* citations only** — a citation whose `chunk_id` was in the retrieved set for this run and still exists. A marker pointing at nothing counts as uncited, which makes a hallucinated citation *lower* the score rather than raise it.
+3. **A zero denominator yields `NULL`, and `NULL` never auto-sends.** A reply that makes no claims — *"I've passed this to a colleague"* — is not a confident reply, it is a reply with nothing to be confident about. Failing safe here costs one human review of a message that needed no knowledge.
+
+**`drafts.model_confidence`** keeps the self-report. It gates nothing and is worth its column: **the gap between what the model claims and what it can support is the only free signal this project gets about its own model**, and it is the leading indicator of a regression after a Gateway version change. Watch the gap, not either number.
+
+**What this does not measure, stated plainly: correctness.** A reply can be perfectly grounded in a chunk that is out of date. Groundedness is a claim about *provenance*, not truth — which is exactly why the honest sentence to a support lead is *"84% of this reply's factual sentences are backed by a source you can click"* and not *"this reply is 84% likely to be right."* Front-End Spec §4.1's meter says the former.
+
+**Why not a second-model grader (option C) now.** It costs a call per draft and adds a second thing that can be wrong, and its value is unmeasurable until there is a baseline to compare it against. B is deterministic, explainable in one sentence, and **scoreable against Story 5.1's eval set** — so if groundedness and human-judged correctness diverge there, C becomes a decision with evidence behind it. **That comparison was impossible under a self-report**, which is the second reason to leave A in place as a recorded column.
+
+**Consumers, all now reading a computed number:** the §4.1 meter and its threshold marker; Story 5.4 AC1's low-confidence escalation; FR42's auto-send threshold, which is what makes Front-End Spec §5.3's backtest dialog honest — *"of your last 200 drafts, 84 would have sent"* is a sentence you can now write and defend. **PRD §8 Q1 is unblocked by this ruling.**
 
 #### The playground shares the agent and must not share the dispatcher (ruled 2026-08-06)
 

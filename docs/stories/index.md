@@ -54,7 +54,7 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 |---|---|---|
 | [5.1](./5.1.md) | Classification | **Draft** — 🔴 classifying per message and storing per conversation lets a polite message **un-escalate** an angry one. `requires_human` ruled a latch. **AC5 blocked on new PRD Q9** |
 | [5.2](./5.2.md) | Agent and tools | **Draft** — reconciles the 60s agent cap with NFR3's 30s budget: the cap is the abort, ~20s the budget, per-step durations recorded |
-| [5.3](./5.3.md) | Draft generation with citations | **Draft** — 🔴 confidence is the model grading itself and it gates auto-send. **Blocked on new PRD Q10** |
+| [5.3](./5.3.md) | Draft generation with citations | **Draft** — ✅ **Q10 closed 2026-08-07**: `confidence` is computed groundedness. AC3 has a mechanism and a writable negative control |
 | [5.4](./5.4.md) | Escalation rules | **Draft** — AC5's "agreed threshold" was already §1.4's 85% and cited nowhere; recall added; two triggers get a floor |
 | [5.5](./5.5.md) | Draft review panel | **Draft** — 🔴 AC5's retained draft stays `proposed`, so Epic 6 auto-sends **two replies**. Adds `superseded` + a partial unique index |
 | [5.6](./5.6.md) | Persona settings and playground | **Draft** — 🔴 "identical tools" lets the playground issue a **real refund**; ruled a non-dispatching sink. Closes traceability F11's NFR4 |
@@ -65,7 +65,7 @@ One story in flight at a time, per Architecture §1.2. The Dev agent starts with
 |---|---|---|
 | [6.1](./6.1.md) | Outbox and exactly-once sending | **Draft** — 🔴 §8.2's claim runs with no tenant so the drain **sends nothing**, and `RETURNING *` is a cross-tenant read. 🔴 AC5 is unimplementable behind §4.1's uniform interface |
 | [6.2](./6.2.md) | Reply threading and branding | **Draft** — threading needs the inbound header chain, not `thread_key`. **AC2 needs three real mailbox accounts** |
-| [6.3](./6.3.md) | Auto-send with a confidence threshold | **Draft** — 🔴 **blocked on Q10**: AC4's dialog cannot explain a threshold on an undefined number |
+| [6.3](./6.3.md) | Auto-send with a confidence threshold | **Draft** — ✅ **Q10 closed**, and this story's AC4 is what decided it. Only Q1's default value remains |
 | [6.4](./6.4.md) | Business hours, delay, and rules | **Draft** — 🔴 AC5's overnight queue freezes a decision for 14 hours; six preconditions now re-checked at claim. Adds `tenants.timezone` |
 | [6.5](./6.5.md) | Bounce and failure handling | **Draft** — 🔴 **a bounce is an inbound email**, so Epic 2 threads it, Epic 5 drafts a reply, and auto-send mails `MAILER-DAEMON`. **Requires a scope change to Story 2.5 — for the PO** |
 

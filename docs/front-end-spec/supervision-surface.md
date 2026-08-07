@@ -9,6 +9,13 @@ The PRD's UX prompt calls for these to be specified "precisely, including their 
 
 Story 5.5 AC1 requires "a number and a label, not color alone". The spec goes further: **four redundant encodings**, any one of which is sufficient to read the value.
 
+> [!important] What the number means — settled 2026-08-07 (PRD §8 Q10)
+> `confidence` is **computed groundedness**, not the model's opinion of itself: the fraction of the reply's factual sentences carrying a citation that resolves to a chunk actually retrieved for this draft. [[Email Engine Architecture]] §10.4 has the ruling.
+>
+> **So the meter must not imply a probability of being right.** Groundedness is *provenance*, not truth — a reply can be perfectly cited to a chunk that is out of date. The label says what was measured and lets the agent draw the conclusion: **"84% of this reply's factual sentences are backed by a source you can click."**
+>
+> That sentence is also what makes §5.3's auto-send dialog honest. Under a self-report its second half would have read *"84 drafts the model felt good about"* — which should stop a support lead from arming auto-send, correctly.
+
 ```
 ●●●○  87 · Moderate        ▏0.90
 └─┬┘  └┬┘   └───┬───┘      └──┬──┘
@@ -24,11 +31,14 @@ Story 5.5 AC1 requires "a number and a label, not color alone". The spec goes fu
 | 75–89 | ●●●○ | 75–89 | Moderate | `--color-primary` at 60% |
 | 60–74 | ●●○○ | 60–74 | Low | `--color-muted-foreground` |
 | < 60 | — | — | — | never drafted; escalates (Story 5.4 AC1) |
+| **`NULL`** | — | — | **No factual claims to check** | `--color-muted-foreground` |
+
+**`NULL` is a real state, not missing data** *(added 2026-08-07)*. A reply that makes no factual claims — *"I've passed this to a colleague"* — has no groundedness to report, so the denominator is zero. It renders as its own label and **never as `0`**, which would read as *badly* grounded and be wrong. It never auto-sends (Story 6.3) and it escalates (Story 5.4): the safe reading of *no signal* is human review, not a pass.
 
 **The threshold marker is the trust-building device.** A thin tick on the meter shows where the tenant's auto-send threshold sits relative to this draft. Over weeks the agent watches drafts land above a line that is not yet armed — which is what makes moving the threshold an informed act rather than a leap of faith (PRD §3.1). It renders even when auto-send is off; especially then.
 
 **Accessibility:**
-- `role="meter"`, `aria-valuenow="87"`, `aria-valuemin="0"`, `aria-valuemax="100"`, `aria-label="Draft confidence 87 of 100, moderate. Auto-send threshold 90."`
+- `role="meter"`, `aria-valuenow="87"`, `aria-valuemin="0"`, `aria-valuemax="100"`, `aria-label="87% of this reply's factual sentences are backed by a cited source. Moderate. Auto-send threshold 90%."` *(Reworded 2026-08-07: "Draft confidence 87 of 100" named a quantity the number is not — see the callout above.)*
 - Segments are `aria-hidden` — decorative duplication of the numeral.
 - Contrast ≥ 4.5:1 on all four bands in both themes. Verified against the §9.2 `oklch` tokens, not assumed.
 - Never the sole content of a table cell or list row.
