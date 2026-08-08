@@ -12,6 +12,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
   "check:shards": "node scripts/check-shards.mjs",
+  "check:stories": "node scripts/check-stories.mjs",
   "shard": "python scripts/reshard.py"
   },
   "devDependencies": {

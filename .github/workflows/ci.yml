@@ -59,6 +59,14 @@ jobs:
       - name: Architecture shards in sync
         run: pnpm check:shards
 
+      # Structural checks over the story corpus: every table created by exactly
+      # one story, no forward dependencies, no cycles. Each looks for a defect
+      # the 2026-08-07 whole-corpus review actually found — eleven tables with
+      # no creating story, and a 2.4/2.7 pair that each depended on the other.
+      # Those were found by throwaway scripts; this is them made permanent.
+      - name: Story corpus structure
+        run: pnpm check:stories
+
       # Catches what typecheck cannot: a route that compiles but fails to
       # prerender, and the static/dynamic split AC3 depends on.
       - name: Build

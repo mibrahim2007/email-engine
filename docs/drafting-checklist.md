@@ -203,6 +203,13 @@ A job is not owned until **the route, the schedule, and the query that finds its
 
 Runs once, and only once all stories exist. Distinct from the boundary audit (stories within an epic) and the cross-epic design check (one later epic against one earlier one): this compares **the whole corpus to itself**, and asks questions that need every story present to answer.
 
+> [!success] Three of this section's checks now run in CI
+> `pnpm check:stories` asserts every table is created by exactly one story, that no story depends on a later one, and that the dependency graph is acyclic. **These were found by throwaway scripts on 08-07 and would have decayed back to prose**; they are now `scripts/check-stories.mjs`, wired into `ci.yml`, and watched failing on five injected defects.
+>
+> Making the table check work needed a change to the stories themselves: a **`Creates`** row in the header table. Every automated attempt on 08-07 mis-measured — six, then nine, then eleven — because *"Drizzle:"*, *"in the Drizzle schema"*, *"Table as above"* and a bare file path all mean the same thing and none is greppable. **The fix for an unverifiable convention is to make the fact explicit, not to write a cleverer grep.**
+>
+> The remaining check in this section — *an AC that names a quantity needs a column* — is deliberately **not** automated. Its tell is a phrase containing a unit or a possessive, and every mechanical version produces more noise than findings. **A check that is routinely wrong gets ignored, which is worse than no check.**
+
 ### ☐ For each table, which story *creates* it?
 
 > **Eleven of eighteen tables had no creating story.** `messages` is referenced by 23 stories and `drafts` by 20, and neither had an owner. Story 2.4 inserts into `messages` on day one of Epic 2 — on a Drizzle-built Neon database it fails on its first statement, after Epic 1 reported green.
