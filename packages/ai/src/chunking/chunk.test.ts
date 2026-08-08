@@ -51,7 +51,7 @@ describe("isEffectivelyEmpty — Story 4.2's ruling", () => {
 describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
   it("keeps a small section whole and carries its heading path", () => {
     const sections: Section[] = [{ headingPath: ["Billing", "Refunds"], text: "Refunds take 5 days to clear." }];
-    const out = chunk(sections);
+    const out = chunk(sections, { countTokens: approximateTokens });
     expect(out).toHaveLength(1);
     expect(out[0]!.metadata.headingPath).toEqual(["Billing", "Refunds"]);
     expect(out[0]!.tokenCount).toBe(approximateTokens(out[0]!.content));
@@ -62,7 +62,7 @@ describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
     // heading path must survive onto each part or a mid-section chunk retrieves
     // with nothing saying what it is about.
     const long = [para(400), para(400), para(400)].join("\n\n");
-    const out = chunk([{ headingPath: ["Policies"], text: long }], { targetTokens: 200 });
+    const out = chunk([{ headingPath: ["Policies"], text: long }], { targetTokens: 200, countTokens: approximateTokens });
     expect(out.length).toBeGreaterThan(1);
     expect(out.every((c) => c.metadata.headingPath.join("/") === "Policies")).toBe(true);
   });
@@ -72,7 +72,7 @@ describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
       { headingPath: ["A"], text: "" },
       { headingPath: ["B"], text: "   \n\n  " },
       { headingPath: ["C"], text: "Real content that is long enough to keep." },
-    ]);
+    ], { countTokens: approximateTokens });
     expect(out).toHaveLength(1);
     expect(out.every((c) => c.content.trim().length > 0)).toBe(true);
   });
@@ -81,18 +81,18 @@ describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
     // The negative control for this story: zero chunks, so the caller must
     // record `empty` rather than `indexed`. The chunker's job is to return
     // nothing honestly; the status ruling is Story 4.3's to apply.
-    expect(chunk([{ headingPath: [], text: "" }])).toEqual([]);
+    expect(chunk([{ headingPath: [], text: "" }], { countTokens: approximateTokens })).toEqual([]);
   });
 
   it("emits an over-budget chunk rather than splitting mid-sentence", () => {
     const single = para(5000);
-    const out = chunk([{ headingPath: ["X"], text: single }], { targetTokens: 100 });
+    const out = chunk([{ headingPath: ["X"], text: single }], { targetTokens: 100, countTokens: approximateTokens });
     expect(out).toHaveLength(1);
     expect(out[0]!.tokenCount).toBeGreaterThan(100);
   });
 
   it("overlaps within a section and never across one", () => {
-    const a = chunk([{ headingPath: ["A"], text: [para(300), para(300)].join("\n\n") }], { targetTokens: 200 });
+    const a = chunk([{ headingPath: ["A"], text: [para(300), para(300)].join("\n\n") }], { targetTokens: 200, countTokens: approximateTokens });
     const combined = a.map((c) => c.content).join("|");
     expect(a.length).toBeGreaterThan(1);
     // Two separate sections must never share a chunk.
@@ -101,7 +101,7 @@ describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
         { headingPath: ["A"], text: "Alpha content long enough to survive the floor." },
         { headingPath: ["B"], text: "Bravo content long enough to survive the floor." },
       ],
-      { targetTokens: 10_000 },
+      { targetTokens: 10_000, countTokens: approximateTokens },
     );
     expect(two).toHaveLength(2);
     expect(two[0]!.content).not.toContain("Bravo");
@@ -115,7 +115,7 @@ describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
     // overlap carry does not duplicate a chunk, which only means anything when
     // the paragraphs differ.
     const text = [para(20, "alpha"), para(20, "bravo"), para(20, "charlie")].join("\n\n");
-    const out = chunk([{ headingPath: ["A"], text }], { targetTokens: 60, overlapRatio: 0.5 });
+    const out = chunk([{ headingPath: ["A"], text }], { targetTokens: 60, overlapRatio: 0.5, countTokens: approximateTokens });
 
     const hashes = out.map((c) => c.contentHash);
     expect(new Set(hashes).size).toBe(hashes.length);
@@ -149,7 +149,7 @@ describe("chunk — Story 4.2 AC2, AC3, AC5", () => {
   });
 
   it("rejects nonsense options rather than producing odd chunks", () => {
-    expect(() => chunk([], { targetTokens: 0 })).toThrow(RangeError);
-    expect(() => chunk([], { overlapRatio: 1 })).toThrow(RangeError);
+    expect(() => chunk([], { targetTokens: 0, countTokens: approximateTokens })).toThrow(RangeError);
+    expect(() => chunk([], { overlapRatio: 1, countTokens: approximateTokens })).toThrow(RangeError);
   });
 });

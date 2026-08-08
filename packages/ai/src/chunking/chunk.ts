@@ -27,19 +27,29 @@ export interface ChunkOptions {
   targetTokens?: number;
   /** AC2's "~15% overlap", applied within a section only. */
   overlapRatio?: number;
-  /** Token counter. Must be the embedding model's own — see `countTokens`. */
-  countTokens?: (text: string) => number;
+  /**
+   * Token counter. **Required, with no default on purpose.**
+   *
+   * Story 4.2 AC3 wants counts from the embedding model's own tokeniser, and a
+   * default would let the approximation below ship simply because nobody
+   * passed anything. Making it mandatory means using the stand-in has to be
+   * typed out — the same reasoning as `system.ts`'s enumerable surface and the
+   * `region` single-value CHECK: **constrain the exception, do not merely
+   * document it.**
+   */
+  countTokens: (text: string) => number;
 }
 
 /**
  * A stand-in token counter: ~4 characters per token.
  *
  * **Story 4.2 AC3 requires the embedding model's tokeniser**, and this is not
- * it. It is here so the chunker is testable and the shape is right; the real
- * one is injected. A count from a different tokeniser is a number that is
- * right about nothing, so this is deliberately crude rather than plausibly
- * accurate — an obviously-approximate default is harder to ship by accident
- * than one that looks correct.
+ * it. A count from a different tokeniser is a number that is right about
+ * nothing, so this is deliberately crude rather than plausibly accurate.
+ *
+ * It is **not** a default — `ChunkOptions.countTokens` is required, so reaching
+ * for this one has to be a decision somebody typed. It exists for tests and for
+ * a caller who has consciously accepted an approximation.
  */
 export const approximateTokens = (text: string): number => Math.ceil(text.length / 4);
 
@@ -55,12 +65,8 @@ export const approximateTokens = (text: string): number => Math.ceil(text.length
  *
  * Never emits an empty or whitespace-only chunk (AC5).
  */
-export function chunk(sections: Section[], options: ChunkOptions = {}): Chunk[] {
-  const {
-    targetTokens = 500,
-    overlapRatio = 0.15,
-    countTokens = approximateTokens,
-  } = options;
+export function chunk(sections: Section[], options: ChunkOptions): Chunk[] {
+  const { targetTokens = 500, overlapRatio = 0.15, countTokens } = options;
 
   if (targetTokens < 1) throw new RangeError("targetTokens must be at least 1");
   if (overlapRatio < 0 || overlapRatio >= 1) throw new RangeError("overlapRatio must be in [0, 1)");

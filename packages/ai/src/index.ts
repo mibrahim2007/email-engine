@@ -21,3 +21,9 @@ export {
   type Groundedness,
   type GroundednessInput,
 } from "./grounding/confidence";
+export {
+  wrapUntrusted,
+  untrustedInstruction,
+  type UntrustedSource,
+  type WrapOptions,
+} from "./prompts/untrusted";
