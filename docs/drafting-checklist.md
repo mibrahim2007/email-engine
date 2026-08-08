@@ -270,6 +270,14 @@ A rule nobody has seen fail is indistinguishable from a rule that does not work.
 
 The tell for all three: **a fact that lives in one document and is used by several.** Column lists, permitted-surface counts, and constraint enumerations are the three that have actually drifted here.
 
+### ☐ Check whether the tool already exists before writing one
+
+> **2026-08-07.** Rulings had been written into the shards instead of the source, and I diagnosed the cause as *the repo has no way to re-shard* — the prescribed path unavailable, so the available one got used. I wrote a script, and generalised it: *a rule that cannot be followed with the tools present is a rule that will be broken.*
+>
+> **`scripts/reshard.py` had been in the repo since 2026-08-04.** It handles all three documents, derives boundaries from headings, and additionally asserts contiguity and checks every emitted heading — more than the one I wrote. The diagnosis was false, the lesson was false, and the fix duplicated a working tool **in a file whose own header warned that two implementations drift.**
+
+The error is attractive, which is why it needs a checklist line: **a systemic explanation is more interesting than "I didn't look", so it is the one that gets reached for.** Before concluding that a process gap caused something, spend the ten seconds that would refute it — here, `ls scripts/`.
+
 ### ☐ Ask which copy is canonical, and which one you just edited
 
 > **2026-08-06.** Three epics of architecture rulings — the RLS/HNSW retrieval finding, the bounce-loop ruling, the playground dispatcher, `superseded`, the classification latch — were written into `docs/architecture/*.md`. **Every one of those files says, on line two, "Derived file — edit the source document and re-shard, never this copy."**

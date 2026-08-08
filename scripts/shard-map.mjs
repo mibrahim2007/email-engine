@@ -1,15 +1,21 @@
-// Shared model of how the three planning documents are sharded.
+// The boundary model used by `check-shards.mjs` to VERIFY that the shards
+// under docs/ match their source documents.
 //
-// `check-shards.mjs` asserts source and shards agree; `shard.mjs` regenerates
-// the shards from the source. Both read this file, so the boundary rule is
-// written once — the alternative is two implementations that drift, which is
-// the failure this whole mechanism exists to prevent.
+// Regeneration is `scripts/reshard.py` — which predates this file, handles all
+// three documents, derives boundaries from headings, and additionally asserts
+// contiguity and checks every emitted heading. `pnpm shard` runs it.
 //
-// Generalised 2026-08-07. It covered the architecture only, which left the
-// front-end spec and the PRD carrying the same "edit the source and re-shard"
-// instruction with nothing enforcing it. A diagnostic run found all three
-// documents in sync — so this closes the gap while it is still closed, rather
-// than after a second reversion.
+// **Two implementations of the boundary rule, deliberately.** The usual reason
+// to share one is that duplicates drift — but here the second implementation is
+// the *checker*, and a checker that shares its model with the thing it checks
+// cannot catch a bug in it. Running reshard.py and then check-shards.mjs is a
+// cross-check between independent readings of the same rule.
+//
+// Corrected 2026-08-08. A previous version of this comment said the repo had no
+// way to re-shard and that this was why rulings had been written into the shards
+// by hand. **reshard.py had existed since 2026-08-04.** The claim was wrong, and
+// it was made while adding a duplicate of the tool it said was missing — see
+// `docs/drafting-checklist.md`, "check whether the tool already exists".
 
 import { readFileSync } from 'node:fs'
 
